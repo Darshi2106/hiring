@@ -1,0 +1,144 @@
+{
+  "theme": "Light mode primary with High-Contrast Swiss Brutalism. Dark mode specific for coding editors and HR focus modes.",
+  "typography": {
+    "strategy": "Swiss Brutalist (Tech/Authority) - Radical weight contrast.",
+    "headings": {
+      "fontFamily": "Cabinet Grotesk, sans-serif",
+      "weights": ["400", "800"],
+      "usage": "Use tight letter spacing (tracking-tight) for large headers. Never use Inter for headings."
+    },
+    "body": {
+      "fontFamily": "Satoshi, sans-serif",
+      "weights": ["400", "500", "700"],
+      "usage": "Clean and highly legible for long reading (job descriptions) and dense data (dashboards)."
+    },
+    "monospace": {
+      "fontFamily": "JetBrains Mono, monospace",
+      "usage": "Use for the code editor, AI risk scores, countdown timers, and technical HR data points."
+    }
+  },
+  "colors": {
+    "archetype": "Swiss & High-Contrast (Authority, Clarity, Truth)",
+    "background": {
+      "primary": "#FFFFFF",
+      "secondary": "#F4F4F5",
+      "exam_focus": "#FAFAFA"
+    },
+    "text": {
+      "primary": "#09090B",
+      "secondary": "#71717A",
+      "muted": "#A1A1AA"
+    },
+    "brand": {
+      "primary": "#002FA7",
+      "primary_hover": "#00227A"
+    },
+    "functional": {
+      "danger": "#E53935",
+      "danger_bg": "#FEF2F2",
+      "success": "#16A34A",
+      "success_bg": "#F0FDF4",
+      "warning": "#F59E0B",
+      "warning_bg": "#FFFBEB"
+    },
+    "rules": [
+      "No purple or violet gradients.",
+      "No teal green for dashboards.",
+      "Color is used strictly for function (e.g., Red for proctoring violations, Blue for primary actions).",
+      "Never use pure #000000; use #09090B (zinc-950) instead."
+    ]
+  },
+  "visual_enhancers": {
+    "borders": "1px solid #E4E4E7 (zinc-200) for structural grid definition. Sharp, not soft.",
+    "shadows": "Minimal. Avoid diffuse soft shadows. Use sharp drop-shadows or 1px border translation for interactive states.",
+    "radius": "Subtle roundness (max 4px to 8px). Avoid pill-shaped except for distinct tags/badges.",
+    "surfaces": {
+      "header": "Solid background with a hard bottom border. NO transparent headers.",
+      "cards": "Flat background, 1px subtle border, no shadow by default. Hover adds slight lift and shadow-sm."
+    }
+  },
+  "layouts": {
+    "marketing_careers": {
+      "grid": "Bento Grid (Mode A). Asymmetrical. grid-cols-1 md:grid-cols-12 gap-8.",
+      "spacing": "Generous. p-12 to p-24 for sections."
+    },
+    "hr_dashboard": {
+      "grid": "High Density Grid (Mode B). grid-cols-1 md:grid-cols-4 gap-6.",
+      "structure": "Sidebar navigation + Topbar + F-Pattern content area. Place North Star metric (Pipeline Health/AI Score) in top-left."
+    },
+    "proctored_exam": {
+      "grid": "Focus Mode. Centered max-w-4xl container. Top sticky bar for timer/webcam status.",
+      "structure": "Minimalist. No distracting sidebars. Full screen lock overlay before starting."
+    }
+  },
+  "motion": {
+    "micro_interactions": "Hover states on all buttons/cards (e.g., -translate-y-0.5, border color change).",
+    "transitions": "Use specific transition properties (e.g., transition-colors, transition-transform) not 'all'.",
+    "exam_alerts": "Harsh, immediate snap animations for proctoring violations (Red screen flash)."
+  },
+  "components": {
+    "buttons": "Sharp corners or slightly rounded (rounded-md). High contrast. Primary uses #002FA7, secondary uses white bg with black border.",
+    "forms": "Use Shadcn UI inputs/selects. Clear error states in Red.",
+    "data_tables": "Shadcn UI table. Dense padding (py-2). Use monospace for IDs and scores.",
+    "tabs": "Override Shadcn default h-9 with h-auto. Use for switching between MCQ, Short Answer, and Coding Challenge in the exam.",
+    "modals": "Use Shadcn Dialog. Solid background. Used for Application details and snapshot review."
+  },
+  "accessibility": {
+    "contrast": "Ensure all text meets APCA/WCAG AA minimums. Dark text on light backgrounds.",
+    "focus": "focus:ring-2 focus:ring-brand-primary focus:ring-offset-2. Never disable outline without replacing it.",
+    "testing": "All interactive and key informational elements MUST include a data-testid attribute in kebab-case."
+  },
+  "icons": {
+    "library": "lucide-react",
+    "usage": "Use crisp, standard weights. Use explicitly for functional meaning (e.g., AlertTriangle for violations, Clock for timer)."
+  },
+  "data_context": {
+    "open_roles": [
+      "Senior Product Manager (AI/ML, Intelligent Systems & Enterprise Innovation)",
+      "Sales Manager (AI/ML, ADAS, Data Services)",
+      "Director Global Sales (AI/ML, ADAS, Multimodal Data)",
+      "Visualization Engineer",
+      "Senior ML / CV Engineer",
+      "Platform / Operations Engineer",
+      "Lead Full-Stack Engineer"
+    ]
+  },
+  "image_urls": [
+    {
+      "url": "https://images.unsplash.com/photo-1572021335469-31706a17aaef?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NTN8MHwxfHNlYXJjaHw0fHxtb2Rlcm4lMjB0ZWNoJTIwb2ZmaWNlJTIwdGVhbSUyMGRpdmVyc2V8ZW58MHx8fHwxNzgzODA3MTUxfDA&ixlib=rb-4.1.0&q=85",
+      "description": "Diverse tech team collaborating at a desk",
+      "category": "careers_hero_or_culture"
+    },
+    {
+      "url": "https://images.unsplash.com/photo-1622675363311-3e1904dc1885?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NTN8MHwxfHNlYXJjaHwzfHxtb2Rlcm4lMjB0ZWNoJTIwb2ZmaWNlJTIwdGVhbSUyMGRpdmVyc2V8ZW58MHx8fHwxNzgzODA3MTUxfDA&ixlib=rb-4.1.0&q=85",
+      "description": "Team meeting in modern office",
+      "category": "careers_culture_grid"
+    },
+    {
+      "url": "https://images.unsplash.com/photo-1602016736566-7ed6a58894bd?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA4Mzl8MHwxfHNlYXJjaHwxfHxmb2N1c2VkJTIwY2FuZGlkYXRlJTIwbGFwdG9wfGVufDB8fHx8MTc4MzgwNzE1MXww&ixlib=rb-4.1.0&q=85",
+      "description": "Focused candidate taking an exam on a laptop",
+      "category": "candidate_exam_marketing"
+    }
+  ],
+  "instructions_to_main_agent": {
+    "1": "Generate a multi-page app with React Router. Routes: /careers, /careers/:jobId, /careers/:jobId/apply, /exam/:inviteId, /hr/login, /hr/dashboard, /hr/jobs, /hr/applications.",
+    "2": "For the HR Dashboard, ensure a high-density, analytical view. Include a mock AI-generation risk score for written answers and a proctoring violation log.",
+    "3": "For the Proctored Exam page, implement UI elements that simulate fullscreen lock, disable copy/paste (via onCopy, onPaste events), and a visual webcam snapshot feed (mocked).",
+    "4": "Include a code editor layout for the coding challenge section (use a simple textarea with monospace font if Monaco is unavailable, but styled to look like an IDE).",
+    "5": "Do not center align `.App` text. Use standard left alignment for readability.",
+    "6": "Add `data-testid` to all forms, buttons, links, and major layout sections.",
+    "7": "Use `sonner` for toast notifications (e.g., successful application, exam timer warnings, HR actions)."
+  },
+  "UNIVERSAL_GUIDELINES_FOR_MAIN_AGENT": [
+    "Do not converge toward generic 'AI slop' aesthetics. Make creative, distinctive frontends.",
+    "Do not use dark colors as gradients.",
+    "Create depth through layered design elements with z-index hierarchy, but keep borders sharp as per Swiss Brutalism.",
+    "Do not apply universal transition (`transition: all`). Apply transitions to specific properties.",
+    "Do not center align the app container in index.css.",
+    "Use modern button styles relevant to the app style (sharp/slightly rounded, high contrast).",
+    "NEVER use AI assistant Emoji characters (🤖🧠💭) for icons. Use lucide-react.",
+    "Every interaction needs micro-animations (hover states, focus rings).",
+    "Use generous spacing (2-3x typical) for marketing, but use high density for HR dashboards.",
+    "NEVER use placeholder image URLs. Use only the provided image_urls."
+  ]
+}
