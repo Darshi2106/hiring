@@ -1,0 +1,24 @@
+{
+  "summary": "Backend smoke + integration test on all 13 requested areas of the CohortData Hiring Portal API. All 34 assertions passed (public jobs listing/detail, applications, HR auth + JWT, HR job CRUD, invite lifecycle, candidate exam fetch/start/submit including Claude Sonnet 4.5 AI-risk scoring, submission retrieval, stats, enriched applications). No blockers.",
+  "tested_scope": ["backend", "auth", "integration"],
+  "passed": [
+    "GET /api/jobs returns 7 seeded jobs sorted by created_at desc",
+    "GET /api/jobs/{id} returns assignment_summary (mcq_count, sa_count, has_coding, duration_minutes) and does NOT leak 'assignment' or correct answers",
+    "POST /api/applications 200 with id for valid job; 404 for invalid job id",
+    "POST /api/auth/login hr@cohortdata.com/Cohort@2026 returns token + user with role=hr_admin; wrong password -> 401",
+    "GET /api/auth/me with Bearer token returns HR user",
+    "HR CRUD /api/hr/jobs POST/PUT/DELETE work with Bearer; POST without auth -> 403; default assignment auto-attached",
+    "POST /api/hr/invite creates one-time token; repeat call returns {existing: true, token: <same>}",
+    "GET /api/exam/{token} returns candidate_name/job_title/duration_minutes/mcqs/short_answers/coding; mcqs stripped of correct_index; invalid token -> 404",
+    "POST /api/exam/start marks in_progress and returns ok",
+    "POST /api/exam/submit returns submission_id + mcq_score + ai_risk_avg (valid int 0-100 or -1); second submit -> 410",
+    "GET /api/hr/submissions/{id} includes ai_results, violations, webcam_snapshots",
+    "GET /api/hr/stats returns open_jobs/total_applications/submissions/high_ai_risk",
+    "GET /api/hr/applications enriched with invite_sent, submission_id, ai_risk_avg, violation_count"
+  ],
+  "failed": [],
+  "action_items": [],
+  "success_rate": {"backend": "100% (34/34)", "frontend": "not tested (backend-only scope)"},
+  "retest_needed": false,
+  "full_testing_deferred": true
+}

@@ -1,56 +1,96 @@
 import { useEffect } from "react";
 import "@/App.css";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import axios from "axios";
-import { HOME } from "@/constants/testIds";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { Toaster } from "sonner";
+import { AuthProvider, useAuth } from "@/context/AuthContext";
+import CareersList from "@/pages/CareersList";
+import JobDetail from "@/pages/JobDetail";
+import Apply from "@/pages/Apply";
+import Exam from "@/pages/Exam";
+import HRLogin from "@/pages/HRLogin";
+import HRDashboard from "@/pages/HRDashboard";
+import HRJobs from "@/pages/HRJobs";
+import HRJobEdit from "@/pages/HRJobEdit";
+import HRApplications from "@/pages/HRApplications";
+import HRSubmission from "@/pages/HRSubmission";
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const API = `${BACKEND_URL}/api`;
+function Protected({ children }) {
+  const { user, loading } = useAuth();
+  if (loading)
+    return (
+      <div className="min-h-screen flex items-center justify-center text-sm text-zinc-500">
+        Loading...
+      </div>
+    );
+  if (!user) return <Navigate to="/hr/login" replace />;
+  return children;
+}
 
-const Home = () => {
-  const helloWorldApi = async () => {
-    try {
-      const response = await axios.get(`${API}/`);
-      console.log(response.data.message);
-    } catch (e) {
-      console.error(e, `errored out requesting / api`);
-    }
-  };
-
-  useEffect(() => {
-    helloWorldApi();
-  }, []);
-
-  return (
-    <div>
-      <header className="App-header">
-        <a
-          data-testid={HOME.emergentLink}
-          className="App-link"
-          href="https://emergent.sh"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <img src="https://avatars.githubusercontent.com/in/1201222?s=120&u=2686cf91179bbafbc7a71bfbc43004cf9ae1acea&v=4" />
-        </a>
-        <p className="mt-5">Building something incredible ~!</p>
-      </header>
-    </div>
-  );
-};
-
-function App() {
+export default function App() {
   return (
     <div className="App">
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Home />}>
-            <Route index element={<Home />} />
-          </Route>
-        </Routes>
-      </BrowserRouter>
+      <AuthProvider>
+        <BrowserRouter>
+          <Toaster position="top-right" richColors />
+          <Routes>
+            <Route path="/" element={<CareersList />} />
+            <Route path="/careers" element={<CareersList />} />
+            <Route path="/careers/:jobId" element={<JobDetail />} />
+            <Route path="/careers/:jobId/apply" element={<Apply />} />
+            <Route path="/exam/:token" element={<Exam />} />
+
+            <Route path="/hr/login" element={<HRLogin />} />
+            <Route
+              path="/hr/dashboard"
+              element={
+                <Protected>
+                  <HRDashboard />
+                </Protected>
+              }
+            />
+            <Route
+              path="/hr/jobs"
+              element={
+                <Protected>
+                  <HRJobs />
+                </Protected>
+              }
+            />
+            <Route
+              path="/hr/jobs/new"
+              element={
+                <Protected>
+                  <HRJobEdit />
+                </Protected>
+              }
+            />
+            <Route
+              path="/hr/jobs/:jobId/edit"
+              element={
+                <Protected>
+                  <HRJobEdit />
+                </Protected>
+              }
+            />
+            <Route
+              path="/hr/applications"
+              element={
+                <Protected>
+                  <HRApplications />
+                </Protected>
+              }
+            />
+            <Route
+              path="/hr/submissions/:submissionId"
+              element={
+                <Protected>
+                  <HRSubmission />
+                </Protected>
+              }
+            />
+          </Routes>
+        </BrowserRouter>
+      </AuthProvider>
     </div>
   );
 }
-
-export default App;
