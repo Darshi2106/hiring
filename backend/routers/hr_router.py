@@ -207,9 +207,18 @@ async def time_to_hire(_user=Depends(require_hr)):
             return round(vs[mid], 1)
         return round((vs[mid - 1] + vs[mid]) / 2, 1)
 
-    apps = await db.applications.find({}).to_list(5000)
-    invites = {i["application_id"]: i async for i in db.invites.find({})}
-    subs = {s["application_id"]: s async for s in db.submissions.find({})}
+    apps = await db.applications.find(
+        {},
+        {"_id": 1, "created_at": 1, "status": 1, "source": 1, "job_title": 1},
+    ).to_list(5000)
+    invites = {
+        i["application_id"]: i
+        async for i in db.invites.find({}, {"application_id": 1, "created_at": 1})
+    }
+    subs = {
+        s["application_id"]: s
+        async for s in db.submissions.find({}, {"application_id": 1, "submitted_at": 1})
+    }
 
     per_app_stages = []
     by_source = {}
@@ -272,22 +281,6 @@ async def update_assignment(job_id: str, body: AssignmentIn, _user=Depends(requi
 
 
 # ---------------- HR: Question bank (read) ----------------
-async def _custom_modules():
-    docs = await db.custom_modules.find({"is_deleted": {"$ne": True}}).to_list(500)
-    result = []
-    for d in docs:
-        result.append({
-            "id": d["id"],
-            "title": d["title"],
-            "category": d["category"],
-            "description": d.get("description", ""),
-            "count": len(d.get("questions", [])),
-            "questions": d.get("questions", []),
-            "is_custom": True,
-        })
-    return result
-
-
 @router.get("/hr/question-bank")
 async def list_modules(_user=Depends(require_hr)):
     seed = [
@@ -295,7 +288,16 @@ async def list_modules(_user=Depends(require_hr)):
          "description": m["description"], "count": m["count"], "is_custom": False}
         for m in all_modules()
     ]
-    custom = [{k: v for k, v in m.items() if k != "questions"} for m in await _custom_modules()]
+    # For the list endpoint we need count only, not question payloads —
+    # use aggregation with $size so the questions array never leaves Mongo.
+    pipeline = [
+        {"$match": {"is_deleted": {"$ne": True}}},
+        {"$project": {
+            "_id": 0, "id": 1, "title": 1, "category": 1, "description": 1,
+            "count": {"$size": {"$ifNull": ["$questions", []]}},
+        }},
+    ]
+    custom = [{**d, "is_custom": True} async for d in db.custom_modules.aggregate(pipeline)]
     return seed + custom
 
 
