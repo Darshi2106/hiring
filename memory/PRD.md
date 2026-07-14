@@ -71,10 +71,13 @@ Build a hiring portal for CohortData with proctored, anti-cheat assignments and 
 1. Email integration (Resend/SendGrid) for invite links — DONE
 2. Object storage for resumes — DONE
 3. Per-job assignment editor UI — DONE
-4. Trust Score composite ranking (MCQ + coding + AI safety + proctoring) — DONE & VERIFIED (iter 8)
-5. GitHub push to https://github.com/Darshi2106/hiring.git — DONE
+4. Trust Score composite ranking — DONE & VERIFIED (iter 8)
+5. GitHub push to Darshi2106/hiring — DONE
+6. Backend refactor: server.py split into deps.py + routers/{hr,candidate,exam}_router.py — DONE (iter 9, 16/16 tests pass)
+7. Open roles sync with cohortdata.com/careers — DONE (5 canonical roles: Quality Analyst, Annotator / Associate, Project Coordinator, Project Associate, Global Sales Director; 186 legacy jobs auto-closed on every startup)
+8. HR Applications pagination (25/page) — DONE (iter 9)
+9. setState-in-render warning fix on HRLogin/CandidateLogin/CandidateRegister — DONE (iter 9, 0 warnings)
 
 ## Known cleanup (non-blocking)
-- Refactor server.py (1133 lines) into HR/candidate/exam routers
-- HR /applications table needs pagination (currently 167 rows unpaginated)
-- React "setState-in-render" warning on HR login redirect (cosmetic)
+- Weekly HR digest email (top 5 Trust Score candidates, stalled roles) — proposed but not implemented
+- Auto-post open roles to LinkedIn + Twitter when HR flips a role to `open` — proposed but not implemented
