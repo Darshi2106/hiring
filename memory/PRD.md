@@ -23,14 +23,16 @@ Build a hiring portal for CohortData with proctored, anti-cheat assignments and 
 ## Implemented (Feb 2026)
 - Public careers listing (7 seed jobs from cohortdata.com)
 - Job detail page with assessment preview
-- Application form
+- Application form (works for anon or logged-in candidates)
+- **Candidate portal** (Feb 2026): register/login/dashboard, tracks applications, one-click "Take assessment" for pending invites
+- CohortData brand identity: official logo + teal/petrol/yellow palette applied globally
 - HR JWT login + protected routes
 - HR dashboard with stats (open jobs, applications, submissions, high AI risk)
 - HR jobs CRUD (create/edit/delete/close)
 - HR applications table with send-invite action (generates one-time link)
-- Proctored exam page with: fullscreen lock, webcam snapshots (30s interval), tab-switch/blur/copy/paste/right-click/devtools/shortcut detection, 5-violation auto-submit, countdown timer with auto-submit
+- Proctored exam page with: fullscreen lock, webcam snapshots (30s), tab-switch/blur/copy/paste/right-click/devtools/shortcut detection, 5-violation auto-submit, countdown timer with auto-submit
 - Server-side MCQ scoring
-- Server-side AI content detection on short answers via Claude Sonnet 4.5 (returns risk 0-100 + reasoning + signals)
+- Server-side AI content detection on short answers via Claude Sonnet 4.5
 - HR submission review page with AI risk per answer, proctoring log, webcam gallery, coding solution
 
 ## Backlog (P1/P2)

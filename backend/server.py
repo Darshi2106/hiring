@@ -137,11 +137,11 @@ async def me(current=Depends(get_current_user)):
 @api.post("/candidate/register")
 async def candidate_register(body: CandidateRegisterIn):
     email = body.email.lower()
+    if len(body.password) < 6:
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
     existing = await db.users.find_one({"email": email})
     if existing:
         raise HTTPException(status_code=409, detail="Email already registered")
-    if len(body.password) < 6:
-        raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
     doc = {
         "email": email,
         "password_hash": hash_password(body.password),
