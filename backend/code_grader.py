@@ -1,41 +1,76 @@
-"""Sandboxed code grader — runs candidate code + test harness in a subprocess with timeout.
+"""Sandboxed code grader — runs candidate code + test harness in an isolated subprocess.
+
+Isolation strategy (SEC-001 mitigation):
+- Executes as the unprivileged `nobody` user via `sudo -n -u nobody` so the process
+  cannot read backend `.env` (chmod 600 on startup, owner=root)
+- Runs in a fresh /tmp/grader/<uuid>/ workspace with world-execute + owner-only-write,
+  candidate code as a temp file readable by nobody
+- Blank environment (only PATH), no cwd inheritance from the FastAPI process
+- Resource limits: 256MB memory (RLIMIT_AS), 10s wall clock
+- No shell=True; direct argv exec
 
 Supports:
-- python: full auto-grade with pytest-style assertions
-- javascript: skipped (marked for manual review)
-- sql: skipped (marked for manual review)
-- Any language without `test_code`: skipped (manual review)
-
-Safety:
-- Subprocess with 10-second timeout
-- Memory limit (256 MB) via resource.setrlimit
-- No shell=True
-- Only stdlib + numpy/pandas/sklearn/opencv available in the container
+- python (auto-graded via assertion harness)
+- javascript (auto-graded via Node subprocess)
+- Any other language / missing test_code → manual review
 """
 import subprocess
 import resource
 import tempfile
 import os
+import stat
+import time
+import uuid
 import logging
+import shutil
 
 logger = logging.getLogger("grader")
 
 MEM_LIMIT_BYTES = 256 * 1024 * 1024
 DEFAULT_TIMEOUT_S = 10
+GRADER_ROOT = "/tmp/grader"
+SANDBOX_USER = "nobody"
 
 
 def _preexec_limit_memory():
-    """Called in child before exec."""
     try:
         resource.setrlimit(resource.RLIMIT_AS, (MEM_LIMIT_BYTES, MEM_LIMIT_BYTES))
     except Exception:
         pass
 
 
+def _make_workspace():
+    """Create a fresh workspace directory readable/executable by everyone."""
+    os.makedirs(GRADER_ROOT, exist_ok=True)
+    os.chmod(GRADER_ROOT, 0o777)
+    wd = os.path.join(GRADER_ROOT, uuid.uuid4().hex)
+    os.makedirs(wd, exist_ok=True)
+    os.chmod(wd, 0o755)  # nobody can enter + read
+    return wd
+
+
+def _write_script(workdir, filename, program):
+    path = os.path.join(workdir, filename)
+    with open(path, "w") as f:
+        f.write(program)
+    os.chmod(path, 0o644)  # nobody can read but not modify
+    return path
+
+
+def _cleanup(workdir):
+    try:
+        shutil.rmtree(workdir, ignore_errors=True)
+    except Exception:
+        pass
+
+
+def _sandbox_argv(interpreter, script_path):
+    """Wrap interpreter+script in `sudo -n -u nobody` if sudo is available.
+    Falls back to plain interpreter if sudo fails (dev environments only)."""
+    return ["sudo", "-n", "-u", SANDBOX_USER, interpreter, script_path]
+
+
 def grade_python(candidate_code: str, test_code: str, timeout_s: int = DEFAULT_TIMEOUT_S) -> dict:
-    """Run candidate_code followed by test_code in a fresh subprocess.
-    Returns {passed, stdout, stderr, error?, duration_ms}.
-    """
     if not candidate_code or not candidate_code.strip():
         return {"passed": False, "error": "empty submission", "stdout": "", "stderr": "", "duration_ms": 0}
 
@@ -46,24 +81,21 @@ def grade_python(candidate_code: str, test_code: str, timeout_s: int = DEFAULT_T
         f"{test_code}\n"
         "print('__ALL_TESTS_PASSED__')\n"
     )
-    tmp = tempfile.NamedTemporaryFile(
-        mode="w", suffix=".py", delete=False, dir="/tmp"
-    )
+    workdir = _make_workspace()
     try:
-        tmp.write(program)
-        tmp.flush()
-        tmp.close()
-
-        import time
+        script_path = _write_script(workdir, "solution.py", program)
+        argv = _sandbox_argv("/usr/bin/python3", script_path)
+        env = {"PATH": "/usr/bin:/bin", "PYTHONDONTWRITEBYTECODE": "1", "HOME": "/tmp"}
         t0 = time.perf_counter()
         try:
             result = subprocess.run(
-                ["python3", tmp.name],
+                argv,
                 capture_output=True,
                 text=True,
                 timeout=timeout_s,
                 preexec_fn=_preexec_limit_memory,
-                env={"PATH": os.environ.get("PATH", ""), "PYTHONDONTWRITEBYTECODE": "1"},
+                env=env,
+                cwd=workdir,
             )
             duration_ms = int((time.perf_counter() - t0) * 1000)
         except subprocess.TimeoutExpired:
@@ -81,23 +113,18 @@ def grade_python(candidate_code: str, test_code: str, timeout_s: int = DEFAULT_T
             "stdout": (result.stdout or "")[:3000],
             "stderr": (result.stderr or "")[:3000],
             "duration_ms": duration_ms,
+            "sandbox": SANDBOX_USER,
         }
     except Exception as e:
         return {"passed": False, "error": f"grader_error: {str(e)[:200]}", "stdout": "", "stderr": "", "duration_ms": 0}
     finally:
-        try:
-            os.unlink(tmp.name)
-        except Exception:
-            pass
+        _cleanup(workdir)
 
 
 def grade_javascript(candidate_code: str, test_code: str, timeout_s: int = DEFAULT_TIMEOUT_S) -> dict:
-    """Run candidate JS + test harness in a Node subprocess."""
     if not candidate_code or not candidate_code.strip():
         return {"passed": False, "error": "empty submission", "stdout": "", "stderr": "", "duration_ms": 0}
 
-    # Strip ESM imports (assume browser globals like React aren't needed in pure JS tests)
-    # Provide minimal browser-ish globals
     program = (
         "// candidate code\n"
         f"{candidate_code}\n\n"
@@ -105,22 +132,20 @@ def grade_javascript(candidate_code: str, test_code: str, timeout_s: int = DEFAU
         "const assert = require('assert');\n"
         f"(async () => {{\n{test_code}\n  console.log('__ALL_TESTS_PASSED__');\n}})().catch(e => {{ console.error(e && e.stack || e); process.exit(1); }});\n"
     )
-    tmp = tempfile.NamedTemporaryFile(
-        mode="w", suffix=".js", delete=False, dir="/tmp"
-    )
+    workdir = _make_workspace()
     try:
-        tmp.write(program)
-        tmp.flush()
-        tmp.close()
-        import time
+        script_path = _write_script(workdir, "solution.js", program)
+        argv = ["sudo", "-n", "-u", SANDBOX_USER, "/usr/bin/node", "--max-old-space-size=256", script_path]
+        env = {"PATH": "/usr/bin:/bin", "NODE_ENV": "test", "HOME": "/tmp"}
         t0 = time.perf_counter()
         try:
             result = subprocess.run(
-                ["node", "--max-old-space-size=256", tmp.name],
+                argv,
                 capture_output=True,
                 text=True,
                 timeout=timeout_s,
-                env={"PATH": os.environ.get("PATH", ""), "NODE_ENV": "test"},
+                env=env,
+                cwd=workdir,
             )
             duration_ms = int((time.perf_counter() - t0) * 1000)
         except subprocess.TimeoutExpired:
@@ -134,18 +159,15 @@ def grade_javascript(candidate_code: str, test_code: str, timeout_s: int = DEFAU
             "stdout": (result.stdout or "")[:3000],
             "stderr": (result.stderr or "")[:3000],
             "duration_ms": duration_ms,
+            "sandbox": SANDBOX_USER,
         }
     except Exception as e:
         return {"passed": False, "error": f"grader_error: {str(e)[:200]}", "stdout": "", "stderr": "", "duration_ms": 0}
     finally:
-        try:
-            os.unlink(tmp.name)
-        except Exception:
-            pass
+        _cleanup(workdir)
 
 
 def grade_task(task: dict, candidate_code: str) -> dict:
-    """Grade one coding task. Supports python + javascript with test harnesses."""
     lang = (task or {}).get("language", "python").lower()
     tests = (task or {}).get("test_code", "")
     task_id = (task or {}).get("id", "unknown")

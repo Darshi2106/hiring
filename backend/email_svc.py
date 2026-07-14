@@ -1,12 +1,22 @@
-"""Email service — Resend if configured, otherwise logs to console (no-op stub)."""
+"""Email service — Resend if configured, otherwise logs to console (no-op stub).
+
+All interpolated candidate-supplied fields are HTML-escaped to prevent HTML
+injection into HR mailboxes or shared inboxes (SEC hardening P3).
+"""
 import os
 import asyncio
 import logging
+import html
 
 logger = logging.getLogger("email")
 
 
 def build_invite_email_html(candidate_name: str, job_title: str, exam_url: str, duration: int) -> str:
+    # Escape all interpolated values (candidate_name / job_title come from user input).
+    name = html.escape(candidate_name or "")
+    title = html.escape(job_title or "")
+    url = html.escape(exam_url or "", quote=True)
+    dur = int(duration or 0)
     return f"""
     <html><body style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;background:#f4f4f5;padding:24px;color:#09090b;">
       <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;background:#ffffff;border:1px solid #e4e4e7;">
@@ -17,14 +27,14 @@ def build_invite_email_html(candidate_name: str, job_title: str, exam_url: str, 
         </tr>
         <tr>
           <td style="padding:32px;">
-            <h2 style="margin:0 0 8px 0;font-size:24px;color:#103e43;letter-spacing:-0.02em;">Hi {candidate_name},</h2>
+            <h2 style="margin:0 0 8px 0;font-size:24px;color:#103e43;letter-spacing:-0.02em;">Hi {name},</h2>
             <p style="margin:0 0 16px 0;font-size:15px;line-height:1.6;color:#3f3f46;">
-              Thank you for applying to <strong>{job_title}</strong>. As the next step, please complete the following proctored assessment.
+              Thank you for applying to <strong>{title}</strong>. As the next step, please complete the following proctored assessment.
             </p>
             <table cellpadding="0" cellspacing="0" style="margin:16px 0;">
               <tr>
                 <td style="padding:6px 12px;background:#fafafa;border-left:3px solid #0f9394;font-size:13px;color:#3f3f46;">
-                  Duration: <strong>{duration} minutes</strong> · One-time link · Webcam & fullscreen required
+                  Duration: <strong>{dur} minutes</strong> · One-time link · Webcam &amp; fullscreen required
                 </td>
               </tr>
             </table>
@@ -33,12 +43,12 @@ def build_invite_email_html(candidate_name: str, job_title: str, exam_url: str, 
             </p>
             <table cellpadding="0" cellspacing="0" style="margin:24px 0;">
               <tr><td>
-                <a href="{exam_url}" style="display:inline-block;background:#0f9394;color:#ffffff;text-decoration:none;padding:14px 28px;font-weight:600;font-size:15px;">Start assessment →</a>
+                <a href="{url}" style="display:inline-block;background:#0f9394;color:#ffffff;text-decoration:none;padding:14px 28px;font-weight:600;font-size:15px;">Start assessment →</a>
               </td></tr>
             </table>
             <p style="margin:16px 0 0 0;font-size:12px;color:#71717a;">
               If the button doesn't work, copy this link into your browser:<br/>
-              <span style="font-family:monospace;color:#0f9394;word-break:break-all;">{exam_url}</span>
+              <span style="font-family:monospace;color:#0f9394;word-break:break-all;">{url}</span>
             </p>
           </td>
         </tr>
@@ -60,9 +70,8 @@ async def send_invite_email(
     duration: int,
     cc_master: bool = True,
 ) -> dict:
-    """Send invite email via Resend if key configured; else log + return mocked."""
     subject = f"CohortData assessment — {job_title}"
-    html = build_invite_email_html(candidate_name, job_title, exam_url, duration)
+    html_body = build_invite_email_html(candidate_name, job_title, exam_url, duration)
     sender = os.environ.get("SENDER_EMAIL", "onboarding@resend.dev")
     master = os.environ.get("MASTER_ADMIN_EMAIL")
     key = os.environ.get("RESEND_API_KEY", "").strip()
@@ -81,7 +90,7 @@ async def send_invite_email(
             "from": sender,
             "to": [to_email],
             "subject": subject,
-            "html": html,
+            "html": html_body,
         }
         if cc_master and master:
             params["cc"] = [master]

@@ -6,14 +6,15 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from bson import ObjectId
 
 from auth import hash_password, verify_password, create_access_token, get_current_user, decode_token
-from deps import db, oid_to_str, LoginIn, CandidateRegisterIn, ApplyIn
+from deps import db, oid_to_str, LoginIn, CandidateRegisterIn, ApplyIn, limiter
 
 router = APIRouter()
 
 
 # ---------------- Candidate Auth ----------------
 @router.post("/candidate/register")
-async def candidate_register(body: CandidateRegisterIn):
+@limiter.limit("5/minute")
+async def candidate_register(request: Request, body: CandidateRegisterIn):
     email = body.email.lower()
     if len(body.password) < 6:
         raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
@@ -36,7 +37,8 @@ async def candidate_register(body: CandidateRegisterIn):
 
 
 @router.post("/candidate/login")
-async def candidate_login(body: LoginIn):
+@limiter.limit("10/minute")
+async def candidate_login(request: Request, body: LoginIn):
     user = await db.users.find_one({"email": body.email.lower(), "role": "candidate"})
     if not user or not verify_password(body.password, user["password_hash"]):
         raise HTTPException(status_code=401, detail="Invalid email or password")
@@ -77,11 +79,37 @@ async def candidate_applications(current=Depends(get_current_user)):
 
 
 # ---------------- Public jobs ----------------
+def _sanitize_public_job(doc):
+    """SEC-002: strip MCQ correct answers, hidden test_code, and internal thresholds
+    from any job document returned to a public/unauthenticated caller."""
+    if doc.get("assignment"):
+        a = doc["assignment"]
+        tasks = a.get("coding_tasks") or ([a["coding"]] if a.get("coding") else [])
+        doc["assignment_summary"] = {
+            "duration_minutes": a.get("duration_minutes", 60),
+            "mcq_count": len(a.get("mcqs", [])),
+            "sa_count": len(a.get("short_answers", [])),
+            "coding_count": len(tasks),
+            "has_coding": len(tasks) > 0,
+        }
+        doc.pop("assignment", None)
+    # Also strip internal HR-only fields
+    for k in (
+        "ai_reject_threshold",
+        "auto_shortlist_enabled",
+        "auto_shortlist_mcq_min",
+        "auto_shortlist_ai_max",
+        "auto_shortlist_max_violations",
+    ):
+        doc.pop(k, None)
+    return doc
+
+
 @router.get("/jobs")
 async def list_jobs(status: Optional[str] = "open"):
     q = {"status": status} if status else {}
     docs = await db.jobs.find(q).sort("created_at", -1).to_list(500)
-    return [oid_to_str(d) for d in docs]
+    return [_sanitize_public_job(oid_to_str(d)) for d in docs]
 
 
 @router.get("/jobs/{job_id}")
@@ -92,23 +120,12 @@ async def get_job(job_id: str):
         raise HTTPException(status_code=404, detail="Job not found")
     if not doc:
         raise HTTPException(status_code=404, detail="Job not found")
-    if doc.get("assignment"):
-        a = doc["assignment"]
-        tasks = a.get("coding_tasks") or ([a["coding"]] if a.get("coding") else [])
-        public_a = {
-            "duration_minutes": a.get("duration_minutes", 60),
-            "mcq_count": len(a.get("mcqs", [])),
-            "sa_count": len(a.get("short_answers", [])),
-            "coding_count": len(tasks),
-            "has_coding": len(tasks) > 0,
-        }
-        doc["assignment_summary"] = public_a
-        doc.pop("assignment", None)
-    return oid_to_str(doc)
+    return _sanitize_public_job(oid_to_str(doc))
 
 
 @router.post("/applications")
-async def apply(body: ApplyIn, request: Request):
+@limiter.limit("5/minute")
+async def apply(request: Request, body: ApplyIn):
     try:
         job = await db.jobs.find_one({"_id": ObjectId(body.job_id)})
     except Exception:

@@ -5,6 +5,8 @@ from typing import List, Optional
 from fastapi import Depends, HTTPException
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, EmailStr, Field
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
 from auth import get_current_user
 
@@ -12,6 +14,12 @@ from auth import get_current_user
 mongo_url = os.environ["MONGO_URL"]
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ["DB_NAME"]]
+
+
+# ---------------- Rate limiter (shared) ----------------
+# Registered on the FastAPI app in server.py; imported by routers to decorate
+# specific endpoints (e.g. login, register, apply, upload, exam-submit).
+limiter = Limiter(key_func=get_remote_address, default_limits=[])
 
 
 # ---------------- Helpers ----------------

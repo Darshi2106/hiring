@@ -77,11 +77,13 @@ export default function Exam() {
     setFlash(true);
     setTimeout(() => setFlash(false), 500);
     toast.warning(`Violation: ${type}`, { description: detail });
+    // SEC-003: post to server so the auto-shortlist gate uses server-recorded count.
+    api.post("/exam/violation", { token, type, detail }).catch(() => {});
     if (violationsRef.current.length >= MAX_VIOLATIONS) {
       toast.error("Too many violations. Auto-submitting.");
       submit(true);
     }
-  }, []);
+  }, [token]);
 
   // Submit
   const submit = useCallback(
