@@ -1,15 +1,18 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { HRNav } from "@/components/Nav";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Copy, Send, ExternalLink, FileText, Calendar } from "lucide-react";
+import { Copy, Send, ExternalLink, FileText, Calendar, ChevronLeft, ChevronRight } from "lucide-react";
+
+const PAGE_SIZE = 25;
 
 export default function HRApplications() {
   const [apps, setApps] = useState([]);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(null);
+  const [page, setPage] = useState(1);
 
   const load = async () => {
     const r = await api.get("/hr/applications");
@@ -88,6 +91,16 @@ export default function HRApplications() {
     return "text-green-600";
   };
 
+  const totalPages = Math.max(1, Math.ceil(apps.length / PAGE_SIZE));
+  const visibleApps = useMemo(() => {
+    const start = (page - 1) * PAGE_SIZE;
+    return apps.slice(start, start + PAGE_SIZE);
+  }, [apps, page]);
+
+  useEffect(() => {
+    if (page > totalPages) setPage(1);
+  }, [totalPages, page]);
+
   return (
     <div className="min-h-screen bg-white">
       <HRNav />
@@ -95,6 +108,11 @@ export default function HRApplications() {
         <div className="mb-8">
           <div className="text-xs uppercase tracking-widest text-zinc-500 mb-1">Pipeline</div>
           <h1 className="font-display font-extrabold text-4xl tracking-tighter">Applications</h1>
+          {!loading && apps.length > 0 && (
+            <div className="mt-2 text-xs text-zinc-500 font-mono" data-testid="apps-total-count">
+              {apps.length} total · page {page} of {totalPages}
+            </div>
+          )}
         </div>
 
         {loading ? (
@@ -119,7 +137,7 @@ export default function HRApplications() {
                 </tr>
               </thead>
               <tbody>
-                {apps.map((a) => (
+                {visibleApps.map((a) => (
                   <tr key={a.id} className="border-b border-zinc-100" data-testid={`app-row-${a.id}`}>
                     <td className="px-4 py-3">
                       <div className="font-medium">{a.name}</div>
@@ -213,6 +231,39 @@ export default function HRApplications() {
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {!loading && totalPages > 1 && (
+          <div className="mt-6 flex items-center justify-between border-t border-zinc-200 pt-4">
+            <div className="text-xs text-zinc-500 font-mono">
+              Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, apps.length)} of {apps.length}
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-none"
+                disabled={page === 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                data-testid="apps-page-prev"
+              >
+                <ChevronLeft className="w-4 h-4 mr-1" /> Prev
+              </Button>
+              <span className="text-sm font-mono" data-testid="apps-page-indicator">
+                {page} / {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-none"
+                disabled={page === totalPages}
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                data-testid="apps-page-next"
+              >
+                Next <ChevronRight className="w-4 h-4 ml-1" />
+              </Button>
+            </div>
           </div>
         )}
       </div>

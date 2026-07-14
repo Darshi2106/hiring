@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -14,10 +14,9 @@ export default function HRLogin() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
-  if (user) {
-    nav("/hr/dashboard");
-    return null;
-  }
+  useEffect(() => {
+    if (user) nav("/hr/dashboard");
+  }, [user, nav]);
 
   const submit = async (e) => {
     e.preventDefault();

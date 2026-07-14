@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useCandidateAuth } from "@/context/CandidateAuthContext";
 import { PublicNav } from "@/components/Nav";
@@ -13,10 +13,9 @@ export default function CandidateRegister() {
   const [form, setForm] = useState({ name: "", email: "", password: "" });
   const [loading, setLoading] = useState(false);
 
-  if (user) {
-    nav("/candidate/dashboard");
-    return null;
-  }
+  useEffect(() => {
+    if (user) nav("/candidate/dashboard");
+  }, [user, nav]);
 
   const upd = (k) => (e) => setForm({ ...form, [k]: e.target.value });
 
