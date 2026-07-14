@@ -30,6 +30,9 @@ Build a hiring portal for CohortData with proctored, anti-cheat assignments and 
 - HR dashboard with live stats + quick actions
 - HR jobs CRUD with per-role config: AI-reject threshold, Calendly URL, **auto-shortlist thresholds** (MCQ%, AI-risk max, max violations)
 - Per-job Assignment editor (MCQs with weights, short-answer, coding, duration)
+- **Multiple coding tasks per assessment** (`coding_tasks[]`) — HR can now stack 2-5 coding tasks in one assignment; candidate sees them as sub-tabs in the coding section of the exam.
+- **Auto-graded coding submissions** via sandboxed subprocess (10s timeout, 256MB memory). Python tasks with `test_code` are graded on submit; results (pass/fail + stdout/stderr + duration) shown in HR submission review. JS/SQL/Python-without-tests routed to "manual review" badge.
+- 16 Python coding tasks in the library ship with test harnesses ready to auto-grade
 - **Question Library (27 modules, 160+ questions)**:
   - MCQ (12 modules, ~110 Qs): Frontend, Backend, Full-stack, ML, CV, DSA, SQL, Aptitude (Quant/Logical/Verbal), Sales, Operations
   - Short-answer banks (3 modules, ~15 Qs): Behavioral, Tech-scenario, Sales-scenario
