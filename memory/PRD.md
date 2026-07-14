@@ -68,6 +68,13 @@ Build a hiring portal for CohortData with proctored, anti-cheat assignments and 
 - P2: Interview scheduling, offer letter generation
 
 ## Next tasks
-1. Email integration (Resend/SendGrid) for invite links
-2. Object storage for resumes
-3. Per-job assignment editor UI
+1. Email integration (Resend/SendGrid) for invite links — DONE
+2. Object storage for resumes — DONE
+3. Per-job assignment editor UI — DONE
+4. Trust Score composite ranking (MCQ + coding + AI safety + proctoring) — DONE & VERIFIED (iter 8)
+5. GitHub push to https://github.com/Darshi2106/hiring.git — DONE
+
+## Known cleanup (non-blocking)
+- Refactor server.py (1133 lines) into HR/candidate/exam routers
+- HR /applications table needs pagination (currently 167 rows unpaginated)
+- React "setState-in-render" warning on HR login redirect (cosmetic)
