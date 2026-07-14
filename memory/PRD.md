@@ -23,17 +23,23 @@ Build a hiring portal for CohortData with proctored, anti-cheat assignments and 
 ## Implemented (Feb 2026)
 - Public careers listing (7 seed jobs from cohortdata.com)
 - Job detail page with assessment preview
-- Application form (works for anon or logged-in candidates)
-- **Candidate portal** (Feb 2026): register/login/dashboard, tracks applications, one-click "Take assessment" for pending invites
+- Application form with **resume file upload** (PDF/DOC/DOCX, max 5MB, object storage)
+- Candidate portal: register/login/dashboard, tracks applications, 1-click "Take assessment"
 - CohortData brand identity: official logo + teal/petrol/yellow palette applied globally
 - HR JWT login + protected routes
-- HR dashboard with stats (open jobs, applications, submissions, high AI risk)
+- HR dashboard with stats + quick actions
 - HR jobs CRUD (create/edit/delete/close)
-- HR applications table with send-invite action (generates one-time link)
-- Proctored exam page with: fullscreen lock, webcam snapshots (30s), tab-switch/blur/copy/paste/right-click/devtools/shortcut detection, 5-violation auto-submit, countdown timer with auto-submit
-- Server-side MCQ scoring
-- Server-side AI content detection on short answers via Claude Sonnet 4.5
+- **Per-job assignment editor** — full CRUD: add/remove MCQs (2-6 options + correct answer + per-question weight), short-answer questions (min-words + weight), coding task (prompt + starter code + weight), duration slider (5-240 min)
+- HR applications table with:
+  - **Email invite delivery** (Resend integration with clean mock fallback when key not set)
+  - View uploaded resume with 1 click (HR-auth gated)
+- Proctored exam page (fullscreen lock, tab-switch/copy/paste/webcam snapshots/violations/auto-submit)
+- Server-side MCQ scoring + Claude Sonnet 4.5 AI-content detection on short answers
 - HR submission review page with AI risk per answer, proctoring log, webcam gallery, coding solution
+- **Master admin role** (`darshan@cohortdata.com`) — activation/verification authority:
+  - `/hr/master/users` — create new HR users, activate/deactivate
+  - CC'd on every candidate invite email
+  - Deactivated users cannot log in (403) and cannot access HR endpoints
 
 ## Backlog (P1/P2)
 - P1: Email delivery of invite links (currently HR copies link manually)

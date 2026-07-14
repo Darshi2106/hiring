@@ -109,6 +109,8 @@ async def require_hr(current=Depends(get_current_user)):
 async def require_master(current=Depends(get_current_user)):
     if current.get("role") != "master_admin":
         raise HTTPException(status_code=403, detail="Master admin access required")
+    if current.get("is_active") is False:
+        raise HTTPException(status_code=403, detail="Account is deactivated")
     return current
 
 
@@ -138,6 +140,8 @@ async def login(body: LoginIn):
     user = await db.users.find_one({"email": body.email.lower()})
     if not user or not verify_password(body.password, user["password_hash"]):
         raise HTTPException(status_code=401, detail="Invalid email or password")
+    if user.get("is_active") is False:
+        raise HTTPException(status_code=403, detail="Account is deactivated. Contact your master admin.")
     token = create_access_token(str(user["_id"]), user["email"])
     return {
         "token": token,
