@@ -281,6 +281,9 @@ class TestInviteEmail:
         assert "token" in d and d["token"]
         assert "email" in d
         em = d["email"]
-        # RESEND_API_KEY is empty -> mocked
-        assert em.get("mocked") is True
-        assert em.get("delivered") is False
+        # RESEND_API_KEY is now set (iteration 5). Email is NOT mocked. Since Resend is in
+        # sandbox mode (recipient must be the account owner), sends to arbitrary test emails
+        # return delivered=false with a verification error. Assert non-mocked behavior.
+        assert em.get("mocked") is not True, f"Email should not be mocked when RESEND_API_KEY is set: {em}"
+        # Either delivered (owner email) or delivered=false with an error (sandbox restriction) — both acceptable.
+        assert "delivered" in em

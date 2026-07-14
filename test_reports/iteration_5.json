@@ -1,0 +1,45 @@
+{
+  "summary": "Iteration 5 backend testing complete. 65/65 tests pass (12 new iteration 5 + 53 regression). All requested features verified: (1) Calendly default backfill at startup — every seeded job has calendly_url=https://calendly.com/darshan-yys. (2) Real Resend delivery — invite to master@ (Resend account owner) returned delivered=true with email_id, no mocked flag. (3) Weighted MCQ scoring — 2 MCQs weighted 1 and 3: only weight-3 correct = 75%, both correct = 100%, none = 0%. (4) Auto-shortlist happy path — application.status flips to 'interview_scheduled', submission.auto_shortlisted=true, application.calendly_url populated. (5) MCQ below min blocks shortlist. (6) Violations above max blocks shortlist. (7) Auto-reject dominates auto-shortlist (threshold=1 → auto_flagged=true, auto_shortlisted=false, status='assignment_rejected_ai'). (8) JobIn accepts and returns all 4 new fields (auto_shortlist_enabled/mcq_min/ai_max/max_violations) with correct defaults (true/80/10/0).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/hr/jobs", "issue": "Newly-created jobs with empty calendly_url are NOT auto-filled with DEFAULT_CALENDLY_URL (backfill only runs at startup). Consider applying the default in create_job when calendly_url is empty so HR isn't required to remember it for new jobs."},
+      {"endpoint": "POST /api/hr/invite", "issue": "Resend account is in sandbox/testing mode — sends to any recipient other than darshan@cohortdata.com return delivered=false with error 'You can only send testing emails to your own email address'. To deliver to real candidates, domain verification is required at resend.com/domains and SENDER_EMAIL must be updated from onboarding@resend.dev to a verified domain address (e.g., hiring@cohortdata.com). This makes real-candidate invite emails fail silently (endpoint still returns 200 with delivered=false)."},
+      {"endpoint": "POST /exam/submit", "issue": "auto_shortlist requires job.calendly_url truthy — if HR clears calendly_url on a job with auto_shortlist_enabled=true, candidates who would otherwise pass are silently NOT shortlisted. Consider surfacing this as a config warning on the job editor or logging it in the submission."}
+    ]
+  },
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_iteration5.py",
+    "/app/backend/tests/test_iteration4.py",
+    "/app/backend/tests/test_iteration3.py",
+    "/app/backend/tests/backend_test.py",
+    "/app/test_reports/pytest/iteration5_results.xml",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "Recommended: apply DEFAULT_CALENDLY_URL default at POST /api/hr/jobs level (not just startup backfill) so new jobs get it automatically.",
+    "IMPORTANT: Verify a domain (e.g., cohortdata.com) in Resend dashboard and update SENDER_EMAIL to a verified address — currently only darshan@cohortdata.com receives real emails; all other candidate invites return delivered=false. Endpoint returns 200 masking the failure. Consider surfacing delivered=false to HR UI.",
+    "Optional: prevent auto_shortlist_enabled=true jobs from having empty calendly_url (validation), or auto-apply the default at job save time."
+  ],
+  "critical_code_review_comments": [
+    "server.py still 891 lines — same recommendation from iteration 4 to split into routers/ still stands.",
+    "auto_shortlist logic requires ALL of {mcq_ok, ai_ok, viol_ok, has_calendly}; the has_calendly requirement is silent — if HR forgot to set the URL, candidate silently drops to 'assignment_submitted' status. Log or expose this in the submission doc.",
+    "In /exam/submit auto-flag comparison uses ai_risk_max >= threshold. With threshold=1 the test relied on any ai_risk score > 0; if ai_detect returned exactly 0 the test would spuriously pass shortlist. Consider deterministic AI mocking in tests (currently we depend on scorer behavior).",
+    "MCQ weight is int(m.get('weight', 1)) — no upper bound. HR could set weight=1000000 for one question, distorting scoring. Consider clamping weights or documenting range.",
+    "Resend send is a fire-and-forget POST; failure only shows in response but application.status is already updated to 'assignment_sent'. If email fails, HR has no way to know without inspecting the returned dict. Consider persisting email delivery status on the invite doc.",
+    "email_svc.send_invite_email catches all exceptions and returns delivered=false — good — but the endpoint returns 200 either way. HR UI should surface delivered=false clearly (currently masked in test_iteration3 as I found).",
+    "test_iteration3 asserted mocked=true which was true when RESEND_API_KEY was empty; iteration 5 makes it real, so I updated the test — future iterations should treat the mocked-vs-real toggle as environment-driven."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration5.py (new)",
+    "/app/backend/tests/test_iteration3.py (updated test_invite_returns_mocked_email to reflect real Resend behavior — no longer mocked)"
+  ],
+  "success_rate": {"backend": "100% (65/65)", "frontend": "not tested (backend-only request)"},
+  "test_credentials": "HR: hr@cohortdata.com / Cohort@2026. Master: darshan@cohortdata.com / MasterCohort@2026. Both verified working.",
+  "seed_data_creation": "Tests create ephemeral test_cand_it5_*@example.com candidates and IT5 Job * jobs per run. ONE real email is sent per run to darshan@cohortdata.com (Resend owner) to conserve quota — safe. No cleanup endpoints exist; test data accumulates in the preview DB.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Run: cd /app/backend && REACT_APP_BACKEND_URL=<url> pytest tests/ --tb=short. test_iteration3.py requires REACT_APP_BACKEND_URL env var explicitly. pytest.ini forces -n 2 --dist loadscope (xdist by class/module). NEW in iteration 5: JobIn has 4 more fields (auto_shortlist_enabled=True, auto_shortlist_mcq_min=80, auto_shortlist_ai_max=10, auto_shortlist_max_violations=0). Submission doc now carries mcq_pct_weighted, mcq_weighted_correct/possible, auto_shortlisted. Application.status may transition on submit to 'interview_scheduled' (auto-shortlisted) or 'assignment_rejected_ai' (auto-flag wins). RESEND_API_KEY is set BUT Resend is in sandbox mode — only sends to darshan@cohortdata.com actually deliver; all others return delivered=false with a verify-domain error. Startup backfills calendly_url from DEFAULT_CALENDLY_URL env var (currently https://calendly.com/darshan-yys) on any job with missing/empty/null calendly_url — but ONLY at startup, not on POST /hr/jobs.",
+  "rca of the issue": "N/A - all requested iteration-5 features work correctly. Two minor gaps flagged: (a) POST /hr/jobs does not apply DEFAULT_CALENDLY_URL default, so newly-created jobs with empty calendly_url stay empty until next backend restart; (b) Resend in sandbox mode silently fails real-candidate emails — needs domain verification + SENDER_EMAIL update in .env."
+}

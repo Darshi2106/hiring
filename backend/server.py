@@ -2,7 +2,7 @@ from dotenv import load_dotenv
 from pathlib import Path
 
 ROOT_DIR = Path(__file__).parent
-load_dotenv(ROOT_DIR / ".env")
+load_dotenv(ROOT_DIR / ".env", override=True)
 
 import os
 import secrets
@@ -73,8 +73,13 @@ class JobIn(BaseModel):
     requirements: List[str] = []
     status: str = "open"
     assignment: Optional[dict] = None
-    ai_reject_threshold: int = 70  # 0-100; >=70 -> auto-flag
+    ai_reject_threshold: int = 70  # 0-100; >=X on any short answer -> auto-flag
     calendly_url: Optional[str] = ""
+    # Auto-shortlist thresholds (all must be satisfied to auto-schedule interview)
+    auto_shortlist_enabled: bool = True
+    auto_shortlist_mcq_min: int = 80         # min MCQ % (weighted)
+    auto_shortlist_ai_max: int = 10          # max AI-risk (max across answers)
+    auto_shortlist_max_violations: int = 0   # max proctoring violations allowed
 
 
 class ApplyIn(BaseModel):
@@ -132,6 +137,13 @@ async def startup():
     await seed_admin(db)
     await seed_jobs(db)
     await seed_question_bank(db)
+    # Backfill default Calendly URL on any job missing it
+    default_calendly = os.environ.get("DEFAULT_CALENDLY_URL", "").strip()
+    if default_calendly:
+        await db.jobs.update_many(
+            {"$or": [{"calendly_url": {"$exists": False}}, {"calendly_url": ""}, {"calendly_url": None}]},
+            {"$set": {"calendly_url": default_calendly}},
+        )
     try:
         init_storage()
     except Exception as e:
@@ -484,12 +496,18 @@ async def submit_exam(body: SubmitAnswersIn):
     job = await db.jobs.find_one({"_id": ObjectId(inv["job_id"])})
     a = job.get("assignment", {})
 
-    # Score MCQs
-    mcq_correct = 0
+    # Score MCQs (weighted)
+    mcq_correct = 0  # raw count for backwards compat
     mcq_total = len(a.get("mcqs", []))
+    weighted_correct = 0
+    weighted_possible = 0
     for m in a.get("mcqs", []):
+        w = int(m.get("weight", 1))
+        weighted_possible += w
         if body.mcq_answers.get(m["id"]) == m["correct_index"]:
             mcq_correct += 1
+            weighted_correct += w
+    mcq_pct = int(round(100 * weighted_correct / weighted_possible)) if weighted_possible else 0
 
     # AI-detect each short answer
     ai_results = {}
@@ -506,7 +524,22 @@ async def submit_exam(body: SubmitAnswersIn):
     # Auto-reject decision
     threshold = int(job.get("ai_reject_threshold", 70))
     auto_flagged = ai_risk_max >= threshold
-    app_status = "assignment_rejected_ai" if auto_flagged else "assignment_submitted"
+
+    # Auto-shortlist decision (only if not auto-flagged)
+    auto_shortlist = False
+    if not auto_flagged and job.get("auto_shortlist_enabled", True):
+        mcq_ok = mcq_pct >= int(job.get("auto_shortlist_mcq_min", 80))
+        ai_ok = ai_risk_max < int(job.get("auto_shortlist_ai_max", 10))
+        viol_ok = len(body.violations) <= int(job.get("auto_shortlist_max_violations", 0))
+        has_calendly = bool(job.get("calendly_url"))
+        auto_shortlist = mcq_ok and ai_ok and viol_ok and has_calendly
+
+    if auto_flagged:
+        app_status = "assignment_rejected_ai"
+    elif auto_shortlist:
+        app_status = "interview_scheduled"
+    else:
+        app_status = "assignment_submitted"
 
     now = datetime.now(timezone.utc).isoformat()
     sub_doc = {
@@ -523,11 +556,15 @@ async def submit_exam(body: SubmitAnswersIn):
         "ai_risk_max": ai_risk_max,
         "ai_reject_threshold": threshold,
         "auto_flagged": auto_flagged,
+        "auto_shortlisted": auto_shortlist,
         "hr_override": False,
         "mcq_score": mcq_correct,
         "mcq_total": mcq_total,
+        "mcq_pct_weighted": mcq_pct,
+        "mcq_weighted_correct": weighted_correct,
+        "mcq_weighted_possible": weighted_possible,
         "violations": body.violations,
-        "webcam_snapshots": body.webcam_snapshots[:20],  # cap
+        "webcam_snapshots": body.webcam_snapshots[:20],
         "time_taken_seconds": body.time_taken_seconds,
         "submitted_at": now,
     }
@@ -536,17 +573,22 @@ async def submit_exam(body: SubmitAnswersIn):
         {"token": body.invite_token},
         {"$set": {"status": "submitted", "submitted_at": now}},
     )
+    update_fields = {"status": app_status}
+    if auto_shortlist:
+        update_fields["calendly_url"] = job.get("calendly_url", "")
     await db.applications.update_one(
         {"_id": ObjectId(inv["application_id"])},
-        {"$set": {"status": app_status}},
+        {"$set": update_fields},
     )
     return {
         "submission_id": str(res.inserted_id),
         "mcq_score": mcq_correct,
         "mcq_total": mcq_total,
+        "mcq_pct_weighted": mcq_pct,
         "ai_risk_avg": ai_risk_avg,
         "ai_risk_max": ai_risk_max,
         "auto_flagged": auto_flagged,
+        "auto_shortlisted": auto_shortlist,
     }
 
 

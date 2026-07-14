@@ -50,6 +50,10 @@ export default function HRJobEdit() {
           .map((s) => s.trim())
           .filter(Boolean),
         ai_reject_threshold: Number(form.ai_reject_threshold) || 70,
+        auto_shortlist_enabled: form.auto_shortlist_enabled !== false,
+        auto_shortlist_mcq_min: Number(form.auto_shortlist_mcq_min ?? 80),
+        auto_shortlist_ai_max: Number(form.auto_shortlist_ai_max ?? 10),
+        auto_shortlist_max_violations: Number(form.auto_shortlist_max_violations ?? 0),
       };
       delete payload.id;
       delete payload.created_at;
@@ -143,6 +147,55 @@ export default function HRJobEdit() {
                 Optional. Shown to candidates whose assessment passes review.
               </div>
             </div>
+          </div>
+
+          <div className="pt-3 border-t border-zinc-100 mt-4">
+            <div className="flex items-center gap-2 mb-2">
+              <input
+                id="autoshortlist"
+                type="checkbox"
+                checked={form.auto_shortlist_enabled !== false}
+                onChange={(e) => setForm({ ...form, auto_shortlist_enabled: e.target.checked })}
+                data-testid="hr-job-autoshortlist"
+              />
+              <Label htmlFor="autoshortlist" className="cursor-pointer">
+                Auto-shortlist high-performers — send Calendly link automatically on submit
+              </Label>
+            </div>
+            {form.auto_shortlist_enabled !== false && (
+              <div className="grid md:grid-cols-3 gap-3 pl-6 mt-2">
+                <div>
+                  <Label className="text-xs">MCQ % ≥</Label>
+                  <Input
+                    type="number" min="0" max="100"
+                    value={form.auto_shortlist_mcq_min ?? 80}
+                    onChange={upd("auto_shortlist_mcq_min")}
+                    className="rounded-none mt-1"
+                    data-testid="hr-job-mcq-min"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">AI-risk max &lt;</Label>
+                  <Input
+                    type="number" min="0" max="100"
+                    value={form.auto_shortlist_ai_max ?? 10}
+                    onChange={upd("auto_shortlist_ai_max")}
+                    className="rounded-none mt-1"
+                    data-testid="hr-job-ai-max"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Violations ≤</Label>
+                  <Input
+                    type="number" min="0"
+                    value={form.auto_shortlist_max_violations ?? 0}
+                    onChange={upd("auto_shortlist_max_violations")}
+                    className="rounded-none mt-1"
+                    data-testid="hr-job-max-viol"
+                  />
+                </div>
+              </div>
+            )}
           </div>
           <div className="flex gap-2 pt-4">
             <Button type="submit" disabled={saving} className="bg-[#0f9394] hover:bg-[#0b7676] rounded-none" data-testid="hr-job-save">

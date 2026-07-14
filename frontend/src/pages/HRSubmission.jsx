@@ -4,7 +4,7 @@ import { HRNav } from "@/components/Nav";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { AlertTriangle, ShieldCheck, ArrowLeft, Camera, RotateCcw, ThumbsUp } from "lucide-react";
+import { AlertTriangle, ShieldCheck, ArrowLeft, Camera, RotateCcw, ThumbsUp, Trophy } from "lucide-react";
 
 export default function HRSubmission() {
   const { submissionId } = useParams();
@@ -56,10 +56,27 @@ export default function HRSubmission() {
             <div className="font-display font-extrabold text-4xl mt-1 font-mono">{sub.ai_risk_avg}%</div>
             <div className="text-xs mt-1 opacity-80">
               MCQ: <span className="font-mono">{sub.mcq_score}/{sub.mcq_total}</span>
+              {sub.mcq_pct_weighted != null && <> (<span className="font-mono">{sub.mcq_pct_weighted}%</span>)</>}
               {sub.ai_risk_max != null && <> · Max: <span className="font-mono">{sub.ai_risk_max}%</span></>}
             </div>
           </div>
         </div>
+
+        {/* Auto-shortlist banner */}
+        {sub.auto_shortlisted && (
+          <div className="mt-6 border border-green-300 bg-green-50 p-4 flex items-start gap-3" data-testid="sub-auto-shortlisted">
+            <Trophy className="w-5 h-5 text-green-700 shrink-0 mt-0.5" />
+            <div>
+              <div className="font-medium text-green-800">
+                Auto-shortlisted — interview invitation sent
+              </div>
+              <div className="text-xs text-green-700 mt-1">
+                MCQ {sub.mcq_pct_weighted ?? sub.mcq_score}% · AI-risk max {sub.ai_risk_max}% · {sub.violations?.length || 0} violations — all thresholds met.
+                Candidate can now schedule via Calendly directly from their dashboard.
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Auto-reject banner */}
         {sub.auto_flagged && (
