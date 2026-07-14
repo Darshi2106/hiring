@@ -59,11 +59,15 @@ async def hr_get_job(job_id: str, _user=Depends(require_hr)):
 async def list_applications(job_id: Optional[str] = None, sort: str = "trust", _user=Depends(require_hr)):
     q = {"job_id": job_id} if job_id else {}
     docs = await db.applications.find(q).sort("created_at", -1).to_list(1000)
+    app_ids = [str(d["_id"]) for d in docs]
+    # Batch fetch invites + submissions to avoid N+1 queries (1000 apps => 3 queries not 2001)
+    invites_map = {i["application_id"]: i async for i in db.invites.find({"application_id": {"$in": app_ids}})}
+    subs_map = {s["application_id"]: s async for s in db.submissions.find({"application_id": {"$in": app_ids}})}
     result = []
     for d in docs:
         d = oid_to_str(d)
-        inv = await db.invites.find_one({"application_id": d["id"]})
-        sub = await db.submissions.find_one({"application_id": d["id"]})
+        inv = invites_map.get(d["id"])
+        sub = subs_map.get(d["id"])
         d["invite_sent"] = bool(inv)
         d["invite_token"] = inv["token"] if inv else None
         d["invite_status"] = inv["status"] if inv else None

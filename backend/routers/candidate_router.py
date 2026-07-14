@@ -66,11 +66,15 @@ async def candidate_applications(current=Depends(get_current_user)):
     if current.get("role") != "candidate":
         raise HTTPException(status_code=403, detail="Not a candidate")
     docs = await db.applications.find({"candidate_id": current["id"]}).sort("created_at", -1).to_list(200)
+    app_ids = [str(d["_id"]) for d in docs]
+    # Batch fetch invites + submissions to avoid N+1 queries
+    invites_map = {i["application_id"]: i async for i in db.invites.find({"application_id": {"$in": app_ids}})}
+    subs_map = {s["application_id"]: s async for s in db.submissions.find({"application_id": {"$in": app_ids}})}
     result = []
     for d in docs:
         d = oid_to_str(d)
-        inv = await db.invites.find_one({"application_id": d["id"]})
-        sub = await db.submissions.find_one({"application_id": d["id"]})
+        inv = invites_map.get(d["id"])
+        sub = subs_map.get(d["id"])
         d["invite_token"] = inv["token"] if inv else None
         d["invite_status"] = inv["status"] if inv else None
         d["has_submitted"] = bool(sub)

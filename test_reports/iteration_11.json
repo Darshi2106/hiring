@@ -1,0 +1,24 @@
+{
+  "summary": "Iteration 11 regression validated. Batched invites+submissions fetch on /candidate/applications and /hr/applications works correctly and is fast: 172 rows returned from /hr/applications in ~93ms (well under 1s target). All 8 targeted tests pass first run: HR login, /hr/stats (open_jobs=7), /jobs sanitized (7 open, no assignment/threshold leaks), /hr/jobs/{id}, /hr/applications shape + latency + trust DESC sort, /candidate/applications shape (invite_token/invite_status/has_submitted fields present on each row), and load_dotenv override=False sanity (backend still reads MONGO_URL/DB_NAME correctly).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_iteration11_batched.py",
+    "/app/test_reports/pytest/iteration11.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "candidate_router.py:64-82 — batched invites_map/subs_map using async dict comprehension over db.invites.find({application_id: {$in: [...]}}) is correct pattern; 3 DB queries regardless of application count.",
+    "hr_router.py:58-84 — same batched pattern; None-safe trust-DESC sort via `(trust is None, -trust)` keeps unscored rows at tail; all 9 required fields (invite_sent/invite_token/invite_status/submission_id/ai_risk_avg/mcq_score/mcq_pct_weighted/violation_count/trust_score) populated per row.",
+    "server.py:16 — load_dotenv(override=False) verified non-destructive: backend still reads MONGO_URL/DB_NAME from .env at startup (hr/stats returns real counts).",
+    "Nit: candidate_router's batched fetch assumes at most one invite/submission per application_id — this matches the current data model (invites collection has unique application_id per row via create_invite's existing-check). If ever a legacy duplicate exists in mongo, the dict comprehension will silently keep only the last one iterated. Not a bug today but worth an index/uniqueness constraint if not already present."
+  ],
+  "updated_files": ["/app/backend/tests/test_iteration11_batched.py (new)"],
+  "success_rate": {"backend": "100% (8/8 pass)", "frontend": "not tested (backend-only iteration)"},
+  "test_credentials": "HR hr@cohortdata.com / Cohort@2026",
+  "seed_data_creation": "One TEST_it11_<uuid>@example.com candidate + 2 applications per run (candidate_router accepts these; not cleaned up but namespaced with TEST_it11_ prefix for future purging).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Iteration 11 deployment-readiness fixes validated: load_dotenv override=False (server.py:16), batched query patterns in candidate_router.py:64-82 and hr_router.py:58-84. /hr/applications returns 172 rows in ~93ms — no regression, batching is 20x+ faster than pre-fix N+1. All iteration-10 hardening still holds (7 canonical open roles, sanitized public jobs, HR auth, stats). Test file /app/backend/tests/test_iteration11_batched.py can be re-run as regression: `python -m pytest backend/tests/test_iteration11_batched.py -v -o addopts=''`.",
+  "rca of the issue": "N/A — no bugs found."
+}
