@@ -818,6 +818,11 @@ async def send_schedule_link(body: ScheduleIn, _user=Depends(require_hr)):
     app_doc = await db.applications.find_one({"_id": ObjectId(body.application_id)})
     if not app_doc:
         raise HTTPException(status_code=404, detail="Not found")
+    if app_doc.get("status") not in ("assignment_submitted", "interview_scheduled"):
+        raise HTTPException(
+            status_code=400,
+            detail="Candidate must have submitted the assessment and passed HR review first.",
+        )
     job = await db.jobs.find_one({"_id": ObjectId(app_doc["job_id"])})
     calendly_url = (job or {}).get("calendly_url", "")
     if not calendly_url:
