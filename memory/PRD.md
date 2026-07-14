@@ -30,10 +30,24 @@ Build a hiring portal for CohortData with proctored, anti-cheat assignments and 
 - HR dashboard with live stats + quick actions
 - HR jobs CRUD with per-role config: AI-reject threshold, Calendly URL, **auto-shortlist thresholds** (MCQ%, AI-risk max, max violations)
 - Per-job Assignment editor (MCQs with weights, short-answer, coding, duration)
-- **Multiple coding tasks per assessment** (`coding_tasks[]`) — HR can now stack 2-5 coding tasks in one assignment; candidate sees them as sub-tabs in the coding section of the exam.
-- **Auto-graded coding submissions** via sandboxed subprocess (10s timeout, 256MB memory). Python tasks with `test_code` are graded on submit; results (pass/fail + stdout/stderr + duration) shown in HR submission review. JS/SQL/Python-without-tests routed to "manual review" badge.
-- 16 Python coding tasks in the library ship with test harnesses ready to auto-grade
-- **Question Library (27 modules, 160+ questions)**:
+## Implemented (Feb 2026)
+- Public careers listing (7 seed jobs) — supports `?src=linkedin|twitter|...` attribution
+- Job detail page with assessment preview
+- Application form with resume upload (5MB PDF/DOC/DOCX)
+- Candidate portal: register/login/dashboard, 1-click "Take assessment" / "Schedule interview"
+- CohortData brand identity: official logo + teal/petrol/yellow palette
+- **HR Dashboard with Time-to-Hire tile** — median hours per pipeline stage (applied → invited → submitted → shortlisted), sliced by source and role
+- HR JWT login + role-guarded routes; **Master admin nav** for Users + Q-Bank management
+- HR jobs CRUD with per-role config: AI-reject threshold, Calendly URL, auto-shortlist thresholds
+- Per-job Assignment editor with `coding_tasks[]` array (multiple coding tasks per assessment)
+- Question Library (28 seed modules + user-added custom modules)
+- **Master admin Question-Bank CRUD** (`/hr/master/question-bank`): create/edit/delete custom modules with MCQ + short-answer + coding questions; seeded modules read-only
+- **Auto-graded coding submissions** — Python via subprocess (10s / 256MB); **JavaScript via Node subprocess** with `assert` harness; SQL & other = manual review
+- AI-risk auto-reject (Claude Sonnet 4.5) with HR override
+- Weighted MCQ grading + Auto-shortlist on submit → Calendly invite
+- Live Resend email delivery
+- Master admin CRUD for HR users; deactivated users blocked at login
+- Object storage integration for resumes
   - MCQ (12 modules, ~110 Qs): Frontend, Backend, Full-stack, ML, CV, DSA, SQL, Aptitude (Quant/Logical/Verbal), Sales, Operations
   - Short-answer banks (3 modules, ~15 Qs): Behavioral, Tech-scenario, Sales-scenario
   - **Coding tasks (12 modules, 37 tasks)**: Python (Beginner/Intermediate/Advanced), JavaScript/Async, React Components, Data Structures, SQL, Pandas/Data Wrangling, ML Pipeline, Computer Vision (OpenCV), FastAPI/Backend, Debug & Fix
