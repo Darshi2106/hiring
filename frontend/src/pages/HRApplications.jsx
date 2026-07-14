@@ -4,7 +4,7 @@ import { HRNav } from "@/components/Nav";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Copy, Send, ExternalLink, FileText } from "lucide-react";
+import { Copy, Send, ExternalLink, FileText, Calendar } from "lucide-react";
 
 export default function HRApplications() {
   const [apps, setApps] = useState([]);
@@ -56,7 +56,6 @@ export default function HRApplications() {
   const openResume = async (resumeUrl) => {
     if (!resumeUrl) return;
     if (!resumeUrl.startsWith("/api/resumes/")) {
-      // external link
       window.open(resumeUrl, "_blank");
       return;
     }
@@ -64,9 +63,21 @@ export default function HRApplications() {
       const res = await api.get(resumeUrl.replace("/api", ""), { responseType: "blob" });
       const url = URL.createObjectURL(res.data);
       window.open(url, "_blank");
-      // note: URL not revoked to allow viewing; browser will GC on tab close
     } catch (e) {
       toast.error("Could not open resume");
+    }
+  };
+
+  const scheduleInterview = async (appId) => {
+    try {
+      const r = await api.post("/hr/schedule-interview", { application_id: appId });
+      toast.success("Candidate can now schedule via Calendly", {
+        description: r.data.calendly_url,
+      });
+      load();
+    } catch (e) {
+      const msg = e.response?.data?.detail || "Failed";
+      toast.error(msg);
     }
   };
 
@@ -144,11 +155,24 @@ export default function HRApplications() {
                     </td>
                     <td className="px-4 py-3 text-right whitespace-nowrap">
                       {a.submission_id ? (
-                        <Link to={`/hr/submissions/${a.submission_id}`}>
-                          <Button size="sm" variant="outline" className="rounded-none" data-testid={`view-sub-${a.id}`}>
-                            <ExternalLink className="w-3.5 h-3.5 mr-1" /> Review
-                          </Button>
-                        </Link>
+                        <>
+                          <Link to={`/hr/submissions/${a.submission_id}`}>
+                            <Button size="sm" variant="outline" className="rounded-none mr-1" data-testid={`view-sub-${a.id}`}>
+                              <ExternalLink className="w-3.5 h-3.5 mr-1" /> Review
+                            </Button>
+                          </Link>
+                          {(a.status === "assignment_submitted" || a.status === "interview_scheduled") && (
+                            <Button
+                              size="sm"
+                              className="bg-accent-yellow text-brand-dark hover:opacity-90 rounded-none font-medium"
+                              onClick={() => scheduleInterview(a.id)}
+                              data-testid={`schedule-${a.id}`}
+                            >
+                              <Calendar className="w-3.5 h-3.5 mr-1" />
+                              {a.status === "interview_scheduled" ? "Resend link" : "Schedule interview"}
+                            </Button>
+                          )}
+                        </>
                       ) : a.invite_sent ? (
                         <Button size="sm" variant="outline" className="rounded-none" onClick={() => copyInvite(a.invite_token)} data-testid={`copy-invite-${a.id}`}>
                           <Copy className="w-3.5 h-3.5 mr-1" /> Copy link
@@ -156,7 +180,7 @@ export default function HRApplications() {
                       ) : (
                         <Button
                           size="sm"
-                          className="bg-[#0f9394] hover:bg-[#0b7676] rounded-none"
+                          className="bg-brand hover:opacity-90 rounded-none"
                           disabled={sending === a.id}
                           onClick={() => sendInvite(a.id)}
                           data-testid={`send-invite-${a.id}`}

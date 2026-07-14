@@ -1,0 +1,44 @@
+{
+  "summary": "Iteration 4 backend testing complete. 53/53 tests pass (13 new iteration 4 + 40 regression from iterations 1-3). All requested features verified: question bank (>=20 modules, mcq_ml has 10 MCQs with options+correct_index, invalid module 404, auth guard), import from library (unique append, duplicate skip returns 0/0/0, coding replaces only when empty), JobIn ai_reject_threshold + calendly_url persisted on POST/PUT/GET, exam submit sets ai_risk_max/ai_reject_threshold/auto_flagged/hr_override — threshold=1 deterministically flips application.status to 'assignment_rejected_ai', HR override toggle flips application.status between 'assignment_submitted' and 'assignment_rejected_ai' and persists hr_override, schedule-interview 200 with calendly_url, 400 when unset, 404 for missing application.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/hr/jobs/{id}/assignment/import", "issue": "When code question is imported and coding slot is not empty, the question is silently dropped (added_code stays 0). Response does not indicate 'skipped_code' so callers can't distinguish 'already exists' from 'slot occupied'. Not a bug per spec but worth surfacing in response."},
+      {"endpoint": "POST /api/hr/schedule-interview", "issue": "No check that submission was actually completed/passed before scheduling. HR can schedule an interview for an applicant who has not submitted the exam or was auto-rejected (without HR override). Consider guarding by application.status."},
+      {"endpoint": "POST /api/hr/submissions/{id}/override", "issue": "Endpoint always changes application.status to either 'assignment_submitted' or 'assignment_rejected_ai' regardless of prior status (e.g., if HR already progressed to interview_scheduled, toggling override would regress the status). No idempotency/state check."}
+    ]
+  },
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_iteration4.py",
+    "/app/backend/tests/test_iteration3.py",
+    "/app/backend/tests/backend_test.py",
+    "/app/test_reports/pytest/iteration4_results.xml",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "Optional: enrich /assignment/import response with skipped_mcq/skipped_sa/skipped_code counts so UI can explain no-op.",
+    "Optional: gate /hr/schedule-interview on application.status in ('assignment_submitted') to prevent scheduling for un-submitted or rejected candidates.",
+    "Optional: /override endpoint should preserve downstream status (e.g., interview_scheduled) rather than always resetting."
+  ],
+  "critical_code_review_comments": [
+    "server.py has grown to 845 lines and mixes 7 responsibility areas — recommend splitting into routers/ package (auth, candidate, hr_jobs, hr_apps, hr_qbank, exam, master, resumes).",
+    "ImportIn silently skips unknown question_ids (get_questions_by_ids filters absent). Consider validating and returning 400 or an 'unknown_ids' list.",
+    "In /exam/submit, if the job has no ai_reject_threshold field (legacy jobs) it defaults to 70 via .get — good. But ai_risk_max/threshold comparison uses >= which means threshold=100 could still flag when scorer returns 100; document semantic explicitly.",
+    "/hr/schedule-interview does not verify HR has actually reviewed the submission — recommend requiring application.status=='assignment_submitted' (or 'assignment_shortlisted') before allowing scheduling.",
+    "Login now rejects is_active=False with 403 (fixed the iteration-3 minor issue) — good improvement.",
+    "Question bank is in-memory (module-level _M / _Q); seed_question_bank persists to DB but reads always come from memory — divergence risk. Either drop DB persistence or read from DB. Currently DB copy is unused.",
+    "Coding import only replaces when a['coding'] is None; if HR imports two coding questions in one call, the 2nd is silently dropped without notice — surface this in response."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration4.py",
+    "/app/backend/tests/test_iteration3.py (updated deactivated-HR test to reflect new login-blocks-deactivated behavior)"
+  ],
+  "success_rate": {"backend": "100% (53/53)", "frontend": "not tested (backend-only request)"},
+  "test_credentials": "HR: hr@cohortdata.com / Cohort@2026. Master: darshan@cohortdata.com / MasterCohort@2026. Both verified working.",
+  "seed_data_creation": "Tests create ephemeral test_it4_app_*@example.com applicants, test_cand_it4_*@example.com candidates, and several IT4 Test Job * jobs per run. No cleanup endpoints exist.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Run: cd /app/backend && REACT_APP_BACKEND_URL=<url> pytest tests/ --tb=short. pytest.ini forces -n 2 --dist loadscope (xdist). test_iteration3.py needs REACT_APP_BACKEND_URL env var explicitly (uses os.environ[...]). New endpoints tested: /api/hr/question-bank[/{id}], /api/hr/jobs/{id}/assignment/import, /api/hr/submissions/{id}/override, /api/hr/schedule-interview. JobIn now includes ai_reject_threshold (int, default 70) and calendly_url (str). Submission docs now carry ai_risk_max, ai_reject_threshold, auto_flagged, hr_override. Application.status vocabulary extended with 'assignment_rejected_ai' and 'interview_scheduled'. Note: iteration-3 test previously asserted deactivated HR could still login; updated to reflect iteration-4 improvement that blocks login with 403.",
+  "rca of the issue": "N/A - no bugs; all functional requirements verified."
+}

@@ -166,12 +166,12 @@ class TestDeactivatedHR:
         # deactivate
         r = requests.post(f"{API}/master/users/{uid}/toggle", headers=_h(master_token))
         assert r.json()["is_active"] is False
-        # login STILL succeeds (per spec)
+        # Iteration 4: login now rejects deactivated users with 403 (previously flagged as action item)
         lr2 = _login(email, password)
-        assert lr2.status_code == 200
-        tok2 = lr2.json()["token"]
-        # but HR endpoint returns 403 with deactivated message
-        r = requests.get(f"{API}/hr/applications", headers=_h(tok2))
+        assert lr2.status_code == 403
+        assert "deactivated" in lr2.text.lower()
+        # Also verify the stale token issued before deactivation now hits the HR guard
+        r = requests.get(f"{API}/hr/applications", headers=_h(tok))
         assert r.status_code == 403
         assert "deactivated" in r.text.lower()
         # cleanup: reactivate

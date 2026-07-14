@@ -20,6 +20,8 @@ export default function HRJobEdit() {
     description: "",
     requirements: "",
     status: "open",
+    ai_reject_threshold: 70,
+    calendly_url: "",
   });
   const [saving, setSaving] = useState(false);
 
@@ -29,6 +31,8 @@ export default function HRJobEdit() {
       setForm({
         ...r.data,
         requirements: (r.data.requirements || []).join("\n"),
+        ai_reject_threshold: r.data.ai_reject_threshold ?? 70,
+        calendly_url: r.data.calendly_url || "",
       });
     });
   }, [jobId, isEdit]);
@@ -45,6 +49,7 @@ export default function HRJobEdit() {
           .split("\n")
           .map((s) => s.trim())
           .filter(Boolean),
+        ai_reject_threshold: Number(form.ai_reject_threshold) || 70,
       };
       delete payload.id;
       delete payload.created_at;
@@ -106,6 +111,38 @@ export default function HRJobEdit() {
               <option value="open">Open</option>
               <option value="closed">Closed</option>
             </select>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-4 pt-2 border-t border-zinc-100 mt-4">
+            <div>
+              <Label>AI-risk auto-reject threshold (%)</Label>
+              <Input
+                type="number"
+                min="0"
+                max="100"
+                value={form.ai_reject_threshold}
+                onChange={upd("ai_reject_threshold")}
+                className="rounded-none mt-1"
+                data-testid="hr-job-threshold"
+              />
+              <div className="mt-1 text-xs text-zinc-500">
+                Any short-answer AI-risk ≥ this value auto-flags the application. HR can override later.
+              </div>
+            </div>
+            <div>
+              <Label>Calendly URL (for interview scheduling)</Label>
+              <Input
+                type="url"
+                placeholder="https://calendly.com/your-team/interview"
+                value={form.calendly_url}
+                onChange={upd("calendly_url")}
+                className="rounded-none mt-1"
+                data-testid="hr-job-calendly"
+              />
+              <div className="mt-1 text-xs text-zinc-500">
+                Optional. Shown to candidates whose assessment passes review.
+              </div>
+            </div>
           </div>
           <div className="flex gap-2 pt-4">
             <Button type="submit" disabled={saving} className="bg-[#0f9394] hover:bg-[#0b7676] rounded-none" data-testid="hr-job-save">

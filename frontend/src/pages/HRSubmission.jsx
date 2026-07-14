@@ -2,15 +2,29 @@ import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { HRNav } from "@/components/Nav";
 import { api } from "@/lib/api";
-import { AlertTriangle, ShieldCheck, ArrowLeft, Camera } from "lucide-react";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { AlertTriangle, ShieldCheck, ArrowLeft, Camera, RotateCcw, ThumbsUp } from "lucide-react";
 
 export default function HRSubmission() {
   const { submissionId } = useParams();
   const [sub, setSub] = useState(null);
 
+  const load = () => api.get(`/hr/submissions/${submissionId}`).then((r) => setSub(r.data));
+
   useEffect(() => {
-    api.get(`/hr/submissions/${submissionId}`).then((r) => setSub(r.data));
+    load();
   }, [submissionId]);
+
+  const override = async (val) => {
+    try {
+      await api.post(`/hr/submissions/${submissionId}/override`, { override: val });
+      toast.success(val ? "Auto-reject overridden — candidate can progress" : "Auto-reject re-applied");
+      load();
+    } catch (e) {
+      toast.error("Failed to update");
+    }
+  };
 
   if (!sub) return <div className="min-h-screen"><HRNav /><div className="p-8 text-zinc-500">Loading...</div></div>;
 
@@ -42,9 +56,38 @@ export default function HRSubmission() {
             <div className="font-display font-extrabold text-4xl mt-1 font-mono">{sub.ai_risk_avg}%</div>
             <div className="text-xs mt-1 opacity-80">
               MCQ: <span className="font-mono">{sub.mcq_score}/{sub.mcq_total}</span>
+              {sub.ai_risk_max != null && <> · Max: <span className="font-mono">{sub.ai_risk_max}%</span></>}
             </div>
           </div>
         </div>
+
+        {/* Auto-reject banner */}
+        {sub.auto_flagged && (
+          <div className="mt-6 border border-red-300 bg-red-50 p-4 flex items-start justify-between gap-3">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+              <div>
+                <div className="font-medium text-red-800">
+                  Auto-flagged as AI-generated (max risk {sub.ai_risk_max}% ≥ threshold {sub.ai_reject_threshold}%)
+                </div>
+                <div className="text-xs text-red-700 mt-1">
+                  {sub.hr_override
+                    ? "You have overridden this rejection. Candidate can progress."
+                    : "Application is currently rejected. Review the answers below and override if this is a false positive."}
+                </div>
+              </div>
+            </div>
+            {sub.hr_override ? (
+              <Button size="sm" variant="outline" className="rounded-none border-red-300" onClick={() => override(false)} data-testid="reapply-reject">
+                <RotateCcw className="w-3.5 h-3.5 mr-1" /> Re-apply reject
+              </Button>
+            ) : (
+              <Button size="sm" className="bg-brand rounded-none" onClick={() => override(true)} data-testid="override-reject">
+                <ThumbsUp className="w-3.5 h-3.5 mr-1" /> Override & approve
+              </Button>
+            )}
+          </div>
+        )}
 
         {/* Violations */}
         <div className="mt-8 border border-zinc-200 p-5">

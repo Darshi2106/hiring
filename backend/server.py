@@ -27,6 +27,12 @@ from seed_jobs import seed_jobs, default_assignment
 from ai_detect import score_text_ai_risk
 from email_svc import send_invite_email
 from storage_svc import init_storage, upload_resume, get_object
+from question_bank import (
+    seed_question_bank,
+    all_modules,
+    get_module,
+    get_questions_by_ids,
+)
 
 # ---------------- DB ----------------
 mongo_url = os.environ["MONGO_URL"]
@@ -67,6 +73,8 @@ class JobIn(BaseModel):
     requirements: List[str] = []
     status: str = "open"
     assignment: Optional[dict] = None
+    ai_reject_threshold: int = 70  # 0-100; >=70 -> auto-flag
+    calendly_url: Optional[str] = ""
 
 
 class ApplyIn(BaseModel):
@@ -123,6 +131,7 @@ async def startup():
     await db.applications.create_index([("candidate_id", 1), ("created_at", -1)])
     await seed_admin(db)
     await seed_jobs(db)
+    await seed_question_bank(db)
     try:
         init_storage()
     except Exception as e:
@@ -492,6 +501,12 @@ async def submit_exam(body: SubmitAnswersIn):
         if result["ai_risk_score"] >= 0:
             scores.append(result["ai_risk_score"])
     ai_risk_avg = int(sum(scores) / len(scores)) if scores else 0
+    ai_risk_max = max(scores) if scores else 0
+
+    # Auto-reject decision
+    threshold = int(job.get("ai_reject_threshold", 70))
+    auto_flagged = ai_risk_max >= threshold
+    app_status = "assignment_rejected_ai" if auto_flagged else "assignment_submitted"
 
     now = datetime.now(timezone.utc).isoformat()
     sub_doc = {
@@ -505,6 +520,10 @@ async def submit_exam(body: SubmitAnswersIn):
         "coding_answer": body.coding_answer,
         "ai_results": ai_results,
         "ai_risk_avg": ai_risk_avg,
+        "ai_risk_max": ai_risk_max,
+        "ai_reject_threshold": threshold,
+        "auto_flagged": auto_flagged,
+        "hr_override": False,
         "mcq_score": mcq_correct,
         "mcq_total": mcq_total,
         "violations": body.violations,
@@ -519,13 +538,15 @@ async def submit_exam(body: SubmitAnswersIn):
     )
     await db.applications.update_one(
         {"_id": ObjectId(inv["application_id"])},
-        {"$set": {"status": "assignment_submitted"}},
+        {"$set": {"status": app_status}},
     )
     return {
         "submission_id": str(res.inserted_id),
         "mcq_score": mcq_correct,
         "mcq_total": mcq_total,
         "ai_risk_avg": ai_risk_avg,
+        "ai_risk_max": ai_risk_max,
+        "auto_flagged": auto_flagged,
     }
 
 
@@ -697,6 +718,115 @@ async def toggle_hr_user(user_id: str, _user=Depends(require_master)):
     new_state = not doc.get("is_active", True)
     await db.users.update_one({"_id": ObjectId(user_id)}, {"$set": {"is_active": new_state}})
     return {"id": user_id, "is_active": new_state}
+
+
+# ---------------- Question bank ----------------
+@api.get("/hr/question-bank")
+async def list_modules(_user=Depends(require_hr)):
+    return [
+        {"id": m["id"], "title": m["title"], "category": m["category"],
+         "description": m["description"], "count": m["count"]}
+        for m in all_modules()
+    ]
+
+
+@api.get("/hr/question-bank/{module_id}")
+async def get_module_detail(module_id: str, _user=Depends(require_hr)):
+    m = get_module(module_id)
+    if not m:
+        raise HTTPException(status_code=404, detail="Module not found")
+    return {
+        **m,
+        "questions": get_questions_by_ids(m["question_ids"]),
+    }
+
+
+class ImportIn(BaseModel):
+    question_ids: List[str]
+
+
+@api.post("/hr/jobs/{job_id}/assignment/import")
+async def import_questions(job_id: str, body: ImportIn, _user=Depends(require_hr)):
+    job = await db.jobs.find_one({"_id": ObjectId(job_id)})
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    a = job.get("assignment") or default_assignment("engineering")
+    a.setdefault("mcqs", [])
+    a.setdefault("short_answers", [])
+    if not a.get("coding"):
+        a["coding"] = None
+
+    existing_ids = (
+        {m["id"] for m in a["mcqs"]}
+        | {s["id"] for s in a["short_answers"]}
+        | ({a["coding"]["id"]} if a.get("coding") else set())
+    )
+    added_mcq = added_sa = added_code = 0
+    for q in get_questions_by_ids(body.question_ids):
+        if q["id"] in existing_ids:
+            continue
+        if q["type"] == "mcq":
+            a["mcqs"].append({
+                "id": q["id"], "question": q["question"],
+                "options": q["options"], "correct_index": q["correct_index"],
+                "weight": q.get("weight", 1),
+            })
+            added_mcq += 1
+        elif q["type"] == "sa":
+            a["short_answers"].append({
+                "id": q["id"], "question": q["question"],
+                "min_words": q.get("min_words", 40),
+                "weight": q.get("weight", 1),
+            })
+            added_sa += 1
+        elif q["type"] == "code":
+            # only 1 coding task at a time — replace if empty else skip
+            if a.get("coding") is None:
+                a["coding"] = {
+                    "id": q["id"], "prompt": q["prompt"],
+                    "starter_code": q.get("starter_code", ""),
+                    "weight": q.get("weight", 1),
+                }
+                added_code += 1
+    await db.jobs.update_one({"_id": ObjectId(job_id)}, {"$set": {"assignment": a}})
+    return {"ok": True, "added_mcq": added_mcq, "added_sa": added_sa, "added_code": added_code}
+
+
+# ---------------- HR override & schedule ----------------
+@api.post("/hr/submissions/{submission_id}/override")
+async def override_submission(submission_id: str, body: dict, _user=Depends(require_hr)):
+    """HR can override an auto-reject decision (or reset it)."""
+    override = bool(body.get("override", True))
+    sub = await db.submissions.find_one({"_id": ObjectId(submission_id)})
+    if not sub:
+        raise HTTPException(status_code=404, detail="Submission not found")
+    new_status = "assignment_submitted" if override else "assignment_rejected_ai"
+    await db.submissions.update_one({"_id": ObjectId(submission_id)}, {"$set": {"hr_override": override}})
+    await db.applications.update_one(
+        {"_id": ObjectId(sub["application_id"])}, {"$set": {"status": new_status}}
+    )
+    return {"ok": True, "hr_override": override, "application_status": new_status}
+
+
+class ScheduleIn(BaseModel):
+    application_id: str
+
+
+@api.post("/hr/schedule-interview")
+async def send_schedule_link(body: ScheduleIn, _user=Depends(require_hr)):
+    """Mark application ready for interview; candidate's dashboard shows the calendly link."""
+    app_doc = await db.applications.find_one({"_id": ObjectId(body.application_id)})
+    if not app_doc:
+        raise HTTPException(status_code=404, detail="Not found")
+    job = await db.jobs.find_one({"_id": ObjectId(app_doc["job_id"])})
+    calendly_url = (job or {}).get("calendly_url", "")
+    if not calendly_url:
+        raise HTTPException(status_code=400, detail="No Calendly URL set for this role. Edit the job to add one.")
+    await db.applications.update_one(
+        {"_id": ObjectId(body.application_id)},
+        {"$set": {"status": "interview_scheduled", "calendly_url": calendly_url}},
+    )
+    return {"ok": True, "calendly_url": calendly_url}
 
 
 # ---------------- Register router ----------------

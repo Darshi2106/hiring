@@ -8,7 +8,9 @@ import { ClipboardList, FileCheck2, Clock, ArrowRight } from "lucide-react";
 const STATUS_LABEL = {
   applied: "Under review",
   assignment_sent: "Assessment invited",
-  assignment_submitted: "Assessment submitted",
+  assignment_submitted: "Under HR review",
+  assignment_rejected_ai: "Not proceeding",
+  interview_scheduled: "Schedule your interview",
 };
 
 export default function CandidateDashboard() {
@@ -99,9 +101,19 @@ export default function CandidateDashboard() {
                           Take assessment <ArrowRight className="w-4 h-4 ml-1" />
                         </Button>
                       </Link>
+                    ) : a.status === "interview_scheduled" && a.calendly_url ? (
+                      <a href={a.calendly_url} target="_blank" rel="noreferrer">
+                        <Button className="bg-accent-yellow hover:opacity-90 text-brand-dark rounded-none font-medium" data-testid={`cd-schedule-${a.id}`}>
+                          Schedule interview <ArrowRight className="w-4 h-4 ml-1" />
+                        </Button>
+                      </a>
+                    ) : a.status === "assignment_rejected_ai" ? (
+                      <span className="text-xs uppercase font-mono border border-red-300 text-red-700 bg-red-50 px-2 py-1">
+                        Not proceeding
+                      </span>
                     ) : a.has_submitted ? (
                       <span className="text-xs uppercase font-mono border border-green-300 text-green-700 bg-green-50 px-2 py-1">
-                        Submitted
+                        Under HR review
                       </span>
                     ) : (
                       <span className="text-xs uppercase font-mono border border-zinc-300 text-zinc-500 px-2 py-1">

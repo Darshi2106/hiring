@@ -7,7 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Plus, Trash2, ArrowLeft, Save, GripVertical, Check, Code } from "lucide-react";
+import { Plus, Trash2, ArrowLeft, Save, GripVertical, Check, Code, BookOpen } from "lucide-react";
+import QuestionBankModal from "@/components/QuestionBankModal";
 
 const emptyMcq = () => ({
   id: `mcq_${Math.random().toString(36).slice(2, 8)}`,
@@ -30,6 +31,9 @@ export default function HRAssignmentEditor() {
   const [job, setJob] = useState(null);
   const [assignment, setAssignment] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [showBank, setShowBank] = useState(false);
+
+  const loadAssignment = () => api.get(`/hr/jobs/${jobId}/assignment`).then((r) => setAssignment(r.data));
 
   useEffect(() => {
     Promise.all([
@@ -97,6 +101,33 @@ export default function HRAssignmentEditor() {
             <Save className="w-4 h-4 mr-1.5" /> {saving ? "Saving..." : "Save assignment"}
           </Button>
         </div>
+
+        {/* Import from library */}
+        <div className="border border-zinc-200 bg-zinc-50 p-4 mb-6 flex items-center justify-between flex-wrap gap-3">
+          <div className="flex items-center gap-2">
+            <BookOpen className="w-4 h-4 text-brand" />
+            <div>
+              <div className="text-sm font-medium">Question Library</div>
+              <div className="text-xs text-zinc-500">Import ready-made questions across engineering, ML, sales, operations and aptitude tests.</div>
+            </div>
+          </div>
+          <Button
+            variant="outline"
+            className="rounded-none border-brand text-brand hover:bg-brand hover:text-white"
+            onClick={() => setShowBank(true)}
+            data-testid="open-question-bank"
+          >
+            <BookOpen className="w-4 h-4 mr-1.5" /> Browse library
+          </Button>
+        </div>
+
+        {showBank && (
+          <QuestionBankModal
+            jobId={jobId}
+            onClose={() => setShowBank(false)}
+            onImported={loadAssignment}
+          />
+        )}
 
         {/* Duration */}
         <section className="border border-zinc-200 p-5 mb-6">
