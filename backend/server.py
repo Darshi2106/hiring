@@ -329,6 +329,8 @@ async def create_job(body: JobIn, _user=Depends(require_hr)):
     if not doc.get("assignment"):
         is_eng = doc["department"] == "Tech & Eng" or "Engineer" in doc["title"]
         doc["assignment"] = default_assignment("engineering" if is_eng else "non-engineering")
+    if not doc.get("calendly_url"):
+        doc["calendly_url"] = os.environ.get("DEFAULT_CALENDLY_URL", "").strip()
     doc["created_at"] = datetime.now(timezone.utc).isoformat()
     res = await db.jobs.insert_one(doc)
     return {"id": str(res.inserted_id), **{k: v for k, v in doc.items() if k != "_id"}}

@@ -28,15 +28,15 @@ Build a hiring portal for CohortData with proctored, anti-cheat assignments and 
 - CohortData brand identity: official logo + teal/petrol/yellow palette
 - HR JWT login + role-guarded routes
 - HR dashboard with live stats + quick actions
-- HR jobs CRUD (+ AI-reject threshold and Calendly URL per role)
-- **Per-job Assignment editor** — MCQs (2-6 options + correct + weight), short-answer (min-words + weight), coding (prompt + starter + weight), duration slider
-- **Question Library (21 modules, ~130+ questions)** across Frontend, Backend, Full-stack, ML, CV, DSA, SQL, Aptitude (Quant/Logical/Verbal), Sales, Operations + short-answer banks + 6 coding tasks. HR imports questions into any job's assignment with 1 click.
-- **AI-risk auto-reject**: Claude Sonnet 4.5 scores every short answer; if any score ≥ per-job threshold (default 70%), application auto-flagged as `assignment_rejected_ai`. HR can override with 1 click.
-- **Email invite delivery** via Resend (with clean MOCK fallback when key not set). Sender: `onboarding@resend.dev`.
-- HR applications table: view resume · send/copy invite · review submission · schedule Calendly interview
-- Proctored exam (fullscreen lock, webcam snapshots, tab-switch/copy/paste/violations/auto-submit)
-- HR submission review: AI risk per answer, proctoring log, webcam gallery, coding solution, auto-flag banner + override
-- **Master admin** `darshan@cohortdata.com` — creates/deactivates HR users, receives CC on invite emails
+- HR jobs CRUD with per-role config: AI-reject threshold, Calendly URL, **auto-shortlist thresholds** (MCQ%, AI-risk max, max violations)
+- Per-job Assignment editor (MCQs with weights, short-answer, coding, duration)
+- Question Library (21 modules, ~130+ questions across Tech/ML/CV/DSA/SQL/Aptitude/Sales/Ops)
+- AI-risk auto-reject (Claude Sonnet 4.5) — per-job threshold, HR override
+- **Weighted MCQ grading** — each MCQ has a weight; `mcq_pct_weighted` reported on submissions
+- **Auto-shortlist on submit** — if `mcq_pct ≥ 80 AND ai_risk_max < 10 AND violations ≤ 0` (all configurable) → application status auto-flips to `interview_scheduled` and candidate immediately sees the Calendly link
+- **Live email delivery via Resend** (`re_XHA2...` configured, sender `onboarding@resend.dev`)
+- Startup + new-job creation auto-apply `DEFAULT_CALENDLY_URL` when unset
+- Master admin `darshan@cohortdata.com` — creates/deactivates HR users
 - Deactivated users blocked at login (403)
 
 ## Backlog (P1/P2)
