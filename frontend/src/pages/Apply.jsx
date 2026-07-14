@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { PublicNav } from "@/components/Nav";
 import { api, formatError } from "@/lib/api";
@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { CheckCircle2, User } from "lucide-react";
+import { CheckCircle2, User, Upload, FileText, X } from "lucide-react";
 
 export default function Apply() {
   const { jobId } = useParams();
@@ -22,6 +22,10 @@ export default function Apply() {
     resume_url: "",
     cover_letter: "",
   });
+  const [resumeFile, setResumeFile] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadedRef, setUploadedRef] = useState(null); // { file_id, download_url, original_filename }
+  const fileInputRef = useRef(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
@@ -37,11 +41,45 @@ export default function Apply() {
 
   const update = (k) => (e) => setForm({ ...form, [k]: e.target.value });
 
+  const handleFile = async (file) => {
+    if (!file) return;
+    const allowed = /\.(pdf|doc|docx)$/i;
+    if (!allowed.test(file.name)) {
+      toast.error("Only PDF, DOC, DOCX files are allowed.");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("File too large (max 5MB).");
+      return;
+    }
+    setResumeFile(file);
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const { data } = await api.post("/resumes/upload", fd, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      setUploadedRef({
+        file_id: data.file_id,
+        download_url: data.download_url,
+        original_filename: file.name,
+      });
+      // Also set resume_url to the API path so HR can download
+      setForm((f) => ({ ...f, resume_url: data.download_url }));
+      toast.success("Resume uploaded");
+    } catch (err) {
+      toast.error(formatError(err.response?.data?.detail) || "Upload failed");
+      setResumeFile(null);
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const submit = async (e) => {
     e.preventDefault();
     setSubmitting(true);
     try {
-      // Use candidate API if logged in (attaches Bearer), else raw api
       const client = candidate ? candidateApi : api;
       await client.post("/applications", { job_id: jobId, ...form });
       toast.success("Application submitted");
@@ -130,8 +168,70 @@ export default function Apply() {
             <Input id="phone" value={form.phone} onChange={update("phone")} className="rounded-none mt-1" data-testid="apply-phone" />
           </div>
           <div>
-            <Label htmlFor="resume">Resume URL (Google Drive / LinkedIn)</Label>
-            <Input id="resume" type="url" placeholder="https://..." value={form.resume_url} onChange={update("resume_url")} className="rounded-none mt-1" data-testid="apply-resume" />
+            <Label>Resume (PDF/DOC/DOCX, max 5MB)</Label>
+            <div className="mt-1 border border-zinc-300 border-dashed p-4 flex items-center justify-between gap-3 flex-wrap">
+              {uploadedRef ? (
+                <>
+                  <div className="flex items-center gap-2 text-sm">
+                    <FileText className="w-4 h-4 text-brand" />
+                    <span className="font-mono truncate max-w-xs">{uploadedRef.original_filename}</span>
+                    <span className="text-xs text-green-700 border border-green-300 bg-green-50 px-1.5 py-0.5">
+                      Uploaded
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setUploadedRef(null);
+                      setResumeFile(null);
+                      setForm((f) => ({ ...f, resume_url: "" }));
+                      if (fileInputRef.current) fileInputRef.current.value = "";
+                    }}
+                    className="text-xs text-red-600 hover:underline flex items-center gap-1"
+                    data-testid="apply-remove-resume"
+                  >
+                    <X className="w-3 h-3" /> Remove
+                  </button>
+                </>
+              ) : (
+                <>
+                  <div className="text-sm text-zinc-500 flex items-center gap-2">
+                    <Upload className="w-4 h-4" />
+                    {uploading ? "Uploading..." : "Drag a file or click to select"}
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="rounded-none"
+                    disabled={uploading}
+                    onClick={() => fileInputRef.current?.click()}
+                    data-testid="apply-upload-btn"
+                  >
+                    Choose file
+                  </Button>
+                </>
+              )}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                className="hidden"
+                onChange={(e) => handleFile(e.target.files?.[0])}
+                data-testid="apply-file-input"
+              />
+            </div>
+            <div className="mt-1 text-xs text-zinc-500">
+              Or paste a link (Google Drive, LinkedIn) below.
+            </div>
+            <Input
+              type="url"
+              placeholder="https://..."
+              value={uploadedRef ? "" : form.resume_url}
+              onChange={update("resume_url")}
+              disabled={!!uploadedRef}
+              className="rounded-none mt-2"
+              data-testid="apply-resume-url"
+            />
           </div>
           <div>
             <Label htmlFor="cover">Cover letter</Label>

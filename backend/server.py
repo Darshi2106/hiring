@@ -10,7 +10,7 @@ import logging
 from datetime import datetime, timezone
 from typing import List, Optional
 
-from fastapi import FastAPI, APIRouter, HTTPException, Depends, Request
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, Request, UploadFile, File, Response
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, EmailStr, Field
@@ -25,6 +25,8 @@ from auth import (
 )
 from seed_jobs import seed_jobs, default_assignment
 from ai_detect import score_text_ai_risk
+from email_svc import send_invite_email
+from storage_svc import init_storage, upload_resume, get_object
 
 # ---------------- DB ----------------
 mongo_url = os.environ["MONGO_URL"]
@@ -95,14 +97,34 @@ class SubmitAnswersIn(BaseModel):
     time_taken_seconds: int = 0
 
 
+# ---------------- Role guards ----------------
+async def require_hr(current=Depends(get_current_user)):
+    if current.get("role") not in ("hr_admin", "master_admin"):
+        raise HTTPException(status_code=403, detail="HR access required")
+    if current.get("is_active") is False:
+        raise HTTPException(status_code=403, detail="Account is deactivated")
+    return current
+
+
+async def require_master(current=Depends(get_current_user)):
+    if current.get("role") != "master_admin":
+        raise HTTPException(status_code=403, detail="Master admin access required")
+    return current
+
+
 # ---------------- Startup ----------------
 @app.on_event("startup")
 async def startup():
     await db.users.create_index("email", unique=True)
     await db.invites.create_index("token", unique=True)
     await db.applications.create_index([("job_id", 1), ("email", 1)])
+    await db.applications.create_index([("candidate_id", 1), ("created_at", -1)])
     await seed_admin(db)
     await seed_jobs(db)
+    try:
+        init_storage()
+    except Exception as e:
+        logging.getLogger(__name__).warning("Storage init failed: %s", e)
 
 
 @app.on_event("shutdown")
@@ -277,7 +299,7 @@ async def apply(body: ApplyIn, request: Request):
 
 # ---------------- HR: Job CRUD ----------------
 @api.post("/hr/jobs")
-async def create_job(body: JobIn, _user=Depends(get_current_user)):
+async def create_job(body: JobIn, _user=Depends(require_hr)):
     doc = body.model_dump()
     if not doc.get("assignment"):
         is_eng = doc["department"] == "Tech & Eng" or "Engineer" in doc["title"]
@@ -288,20 +310,20 @@ async def create_job(body: JobIn, _user=Depends(get_current_user)):
 
 
 @api.put("/hr/jobs/{job_id}")
-async def update_job(job_id: str, body: JobIn, _user=Depends(get_current_user)):
+async def update_job(job_id: str, body: JobIn, _user=Depends(require_hr)):
     updates = body.model_dump()
     await db.jobs.update_one({"_id": ObjectId(job_id)}, {"$set": updates})
     return {"ok": True}
 
 
 @api.delete("/hr/jobs/{job_id}")
-async def delete_job(job_id: str, _user=Depends(get_current_user)):
+async def delete_job(job_id: str, _user=Depends(require_hr)):
     await db.jobs.delete_one({"_id": ObjectId(job_id)})
     return {"ok": True}
 
 
 @api.get("/hr/jobs/{job_id}")
-async def hr_get_job(job_id: str, _user=Depends(get_current_user)):
+async def hr_get_job(job_id: str, _user=Depends(require_hr)):
     doc = await db.jobs.find_one({"_id": ObjectId(job_id)})
     if not doc:
         raise HTTPException(status_code=404, detail="Job not found")
@@ -310,7 +332,7 @@ async def hr_get_job(job_id: str, _user=Depends(get_current_user)):
 
 # ---------------- HR: Applications ----------------
 @api.get("/hr/applications")
-async def list_applications(job_id: Optional[str] = None, _user=Depends(get_current_user)):
+async def list_applications(job_id: Optional[str] = None, _user=Depends(require_hr)):
     q = {"job_id": job_id} if job_id else {}
     docs = await db.applications.find(q).sort("created_at", -1).to_list(1000)
     # attach invite/submission summary
@@ -331,33 +353,49 @@ async def list_applications(job_id: Optional[str] = None, _user=Depends(get_curr
 
 
 @api.post("/hr/invite")
-async def create_invite(body: InviteIn, _user=Depends(get_current_user)):
+async def create_invite(body: InviteIn, _user=Depends(require_hr)):
     app_doc = await db.applications.find_one({"_id": ObjectId(body.application_id)})
     if not app_doc:
         raise HTTPException(status_code=404, detail="Application not found")
-    # If already invited, return existing
+    job = await db.jobs.find_one({"_id": ObjectId(app_doc["job_id"])})
+    duration = (job or {}).get("assignment", {}).get("duration_minutes", 60)
+    # If already invited, resend email but return existing token
     existing = await db.invites.find_one({"application_id": body.application_id})
     if existing:
-        return {"token": existing["token"], "existing": True}
-    token = secrets.token_urlsafe(24)
-    doc = {
-        "token": token,
-        "application_id": body.application_id,
-        "job_id": app_doc["job_id"],
-        "candidate_email": app_doc["email"],
-        "candidate_name": app_doc["name"],
-        "status": "pending",
-        "created_at": datetime.now(timezone.utc).isoformat(),
-    }
-    await db.invites.insert_one(doc)
-    await db.applications.update_one(
-        {"_id": ObjectId(body.application_id)}, {"$set": {"status": "assignment_sent"}}
+        token = existing["token"]
+        existing_flag = True
+    else:
+        token = secrets.token_urlsafe(24)
+        doc = {
+            "token": token,
+            "application_id": body.application_id,
+            "job_id": app_doc["job_id"],
+            "candidate_email": app_doc["email"],
+            "candidate_name": app_doc["name"],
+            "status": "pending",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }
+        await db.invites.insert_one(doc)
+        await db.applications.update_one(
+            {"_id": ObjectId(body.application_id)}, {"$set": {"status": "assignment_sent"}}
+        )
+        existing_flag = False
+
+    # Send email (mock if RESEND_API_KEY not configured)
+    app_url = os.environ.get("APP_URL", "http://localhost:3000")
+    exam_url = f"{app_url.rstrip('/')}/exam/{token}"
+    email_result = await send_invite_email(
+        to_email=app_doc["email"],
+        candidate_name=app_doc["name"],
+        job_title=app_doc["job_title"],
+        exam_url=exam_url,
+        duration=duration,
     )
-    return {"token": token, "existing": False}
+    return {"token": token, "existing": existing_flag, "email": email_result, "exam_url": exam_url}
 
 
 @api.get("/hr/submissions/{submission_id}")
-async def get_submission(submission_id: str, _user=Depends(get_current_user)):
+async def get_submission(submission_id: str, _user=Depends(require_hr)):
     doc = await db.submissions.find_one({"_id": ObjectId(submission_id)})
     if not doc:
         raise HTTPException(status_code=404, detail="Submission not found")
@@ -365,7 +403,7 @@ async def get_submission(submission_id: str, _user=Depends(get_current_user)):
 
 
 @api.get("/hr/stats")
-async def hr_stats(_user=Depends(get_current_user)):
+async def hr_stats(_user=Depends(require_hr)):
     total_jobs = await db.jobs.count_documents({"status": "open"})
     total_apps = await db.applications.count_documents({})
     total_subs = await db.submissions.count_documents({})
@@ -491,6 +529,170 @@ async def submit_exam(body: SubmitAnswersIn):
 async def log_violation(body: dict):
     """Optional real-time violation logging (not required, submit collects them)."""
     return {"ok": True}
+
+
+# ---------------- Resume upload ----------------
+MAX_RESUME_BYTES = 5 * 1024 * 1024  # 5MB
+
+
+@api.post("/resumes/upload")
+async def resume_upload(file: UploadFile = File(...)):
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="Missing filename")
+    data = await file.read()
+    if len(data) > MAX_RESUME_BYTES:
+        raise HTTPException(status_code=413, detail="File too large (max 5MB)")
+    # Extract candidate email if uploaded via candidate portal (best-effort)
+    candidate_email = "anonymous"
+    try:
+        result = upload_resume(
+            candidate_email=candidate_email,
+            filename=file.filename,
+            data=data,
+            content_type=file.content_type or "application/octet-stream",
+        )
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)[:120]}")
+    now = datetime.now(timezone.utc).isoformat()
+    file_doc = {
+        "storage_path": result["storage_path"],
+        "original_filename": result["original_filename"],
+        "content_type": result["content_type"],
+        "size": result["size"],
+        "is_deleted": False,
+        "created_at": now,
+    }
+    ins = await db.resume_files.insert_one(file_doc)
+    return {
+        "file_id": str(ins.inserted_id),
+        "storage_path": result["storage_path"],
+        "size": result["size"],
+        "download_url": f"/api/resumes/{ins.inserted_id}",
+    }
+
+
+@api.get("/resumes/{file_id}")
+async def resume_download(file_id: str, _user=Depends(require_hr)):
+    """HR-protected resume download."""
+    try:
+        doc = await db.resume_files.find_one({"_id": ObjectId(file_id), "is_deleted": False})
+    except Exception:
+        raise HTTPException(status_code=404, detail="Not found")
+    if not doc:
+        raise HTTPException(status_code=404, detail="Not found")
+    data, ct = get_object(doc["storage_path"])
+    return Response(
+        content=data,
+        media_type=doc.get("content_type") or ct,
+        headers={"Content-Disposition": f'inline; filename="{doc["original_filename"]}"'},
+    )
+
+
+# ---------------- Assignment editor ----------------
+class MCQItem(BaseModel):
+    id: str
+    question: str
+    options: List[str]
+    correct_index: int
+    weight: int = 1
+
+
+class ShortAnswerItem(BaseModel):
+    id: str
+    question: str
+    min_words: int = 40
+    weight: int = 1
+
+
+class CodingItem(BaseModel):
+    id: str = "code1"
+    prompt: str
+    starter_code: str = ""
+    weight: int = 1
+
+
+class AssignmentIn(BaseModel):
+    duration_minutes: int = 60
+    mcqs: List[MCQItem] = []
+    short_answers: List[ShortAnswerItem] = []
+    coding: Optional[CodingItem] = None
+
+
+@api.get("/hr/jobs/{job_id}/assignment")
+async def get_assignment(job_id: str, _user=Depends(require_hr)):
+    doc = await db.jobs.find_one({"_id": ObjectId(job_id)})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Job not found")
+    return doc.get("assignment") or default_assignment("engineering")
+
+
+@api.put("/hr/jobs/{job_id}/assignment")
+async def update_assignment(job_id: str, body: AssignmentIn, _user=Depends(require_hr)):
+    # Validate: each MCQ correct_index in range
+    for m in body.mcqs:
+        if not (0 <= m.correct_index < len(m.options)):
+            raise HTTPException(status_code=400, detail=f"MCQ '{m.id}' correct_index out of range")
+    if body.duration_minutes < 5 or body.duration_minutes > 240:
+        raise HTTPException(status_code=400, detail="Duration must be between 5 and 240 minutes")
+    payload = body.model_dump()
+    await db.jobs.update_one({"_id": ObjectId(job_id)}, {"$set": {"assignment": payload}})
+    return {"ok": True, "assignment": payload}
+
+
+# ---------------- Master admin: HR user management ----------------
+class HRUserIn(BaseModel):
+    name: str
+    email: EmailStr
+    password: str
+
+
+@api.get("/master/users")
+async def list_hr_users(_user=Depends(require_master)):
+    docs = await db.users.find({"role": {"$in": ["hr_admin", "master_admin"]}}).to_list(200)
+    return [
+        {
+            "id": str(d["_id"]),
+            "email": d["email"],
+            "name": d.get("name"),
+            "role": d.get("role"),
+            "is_active": d.get("is_active", True),
+            "created_at": d.get("created_at"),
+        }
+        for d in docs
+    ]
+
+
+@api.post("/master/users")
+async def create_hr_user(body: HRUserIn, _user=Depends(require_master)):
+    if len(body.password) < 6:
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
+    email = body.email.lower()
+    if await db.users.find_one({"email": email}):
+        raise HTTPException(status_code=409, detail="Email already registered")
+    doc = {
+        "email": email,
+        "password_hash": hash_password(body.password),
+        "name": body.name.strip(),
+        "role": "hr_admin",
+        "is_active": True,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    res = await db.users.insert_one(doc)
+    return {"id": str(res.inserted_id), "email": email, "name": doc["name"], "role": "hr_admin"}
+
+
+@api.post("/master/users/{user_id}/toggle")
+async def toggle_hr_user(user_id: str, _user=Depends(require_master)):
+    doc = await db.users.find_one({"_id": ObjectId(user_id)})
+    if not doc:
+        raise HTTPException(status_code=404, detail="User not found")
+    if doc.get("role") == "master_admin":
+        raise HTTPException(status_code=400, detail="Cannot deactivate master admin")
+    new_state = not doc.get("is_active", True)
+    await db.users.update_one({"_id": ObjectId(user_id)}, {"$set": {"is_active": new_state}})
+    return {"id": user_id, "is_active": new_state}
 
 
 # ---------------- Register router ----------------

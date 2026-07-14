@@ -73,6 +73,11 @@ export default function HRJobs() {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right">
+                      <Link to={`/hr/jobs/${j.id}/assignment`}>
+                        <Button size="sm" variant="ghost" data-testid={`hr-assignment-${j.id}`} title="Edit assignment">
+                          <span className="text-xs font-mono">📝</span>
+                        </Button>
+                      </Link>
                       <Link to={`/hr/jobs/${j.id}/edit`}>
                         <Button size="sm" variant="ghost" data-testid={`hr-edit-${j.id}`}>
                           <Edit className="w-3.5 h-3.5" />

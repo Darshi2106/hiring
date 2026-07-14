@@ -73,6 +73,7 @@ async def seed_admin(db):
             "password_hash": hash_password(admin_password),
             "name": "HR Admin",
             "role": "hr_admin",
+            "is_active": True,
             "created_at": datetime.now(timezone.utc).isoformat(),
         })
     elif not verify_password(admin_password, existing["password_hash"]):
@@ -80,3 +81,23 @@ async def seed_admin(db):
             {"email": admin_email},
             {"$set": {"password_hash": hash_password(admin_password)}},
         )
+
+    # Master admin (super admin - handles activation/verification)
+    master_email = os.environ.get("MASTER_ADMIN_EMAIL", "").lower()
+    master_password = os.environ.get("MASTER_ADMIN_PASSWORD", "")
+    if master_email and master_password:
+        existing_master = await db.users.find_one({"email": master_email})
+        if existing_master is None:
+            await db.users.insert_one({
+                "email": master_email,
+                "password_hash": hash_password(master_password),
+                "name": "Master Admin",
+                "role": "master_admin",
+                "is_active": True,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+            })
+        elif not verify_password(master_password, existing_master["password_hash"]):
+            await db.users.update_one(
+                {"email": master_email},
+                {"$set": {"password_hash": hash_password(master_password), "role": "master_admin"}},
+            )

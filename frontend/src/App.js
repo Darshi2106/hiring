@@ -14,6 +14,8 @@ import HRJobs from "@/pages/HRJobs";
 import HRJobEdit from "@/pages/HRJobEdit";
 import HRApplications from "@/pages/HRApplications";
 import HRSubmission from "@/pages/HRSubmission";
+import HRAssignmentEditor from "@/pages/HRAssignmentEditor";
+import MasterUsers from "@/pages/MasterUsers";
 import CandidateLogin from "@/pages/CandidateLogin";
 import CandidateRegister from "@/pages/CandidateRegister";
 import CandidateDashboard from "@/pages/CandidateDashboard";
@@ -55,8 +57,10 @@ export default function App() {
               <Route path="/hr/jobs" element={<Protected><HRJobs /></Protected>} />
               <Route path="/hr/jobs/new" element={<Protected><HRJobEdit /></Protected>} />
               <Route path="/hr/jobs/:jobId/edit" element={<Protected><HRJobEdit /></Protected>} />
+              <Route path="/hr/jobs/:jobId/assignment" element={<Protected><HRAssignmentEditor /></Protected>} />
               <Route path="/hr/applications" element={<Protected><HRApplications /></Protected>} />
               <Route path="/hr/submissions/:submissionId" element={<Protected><HRSubmission /></Protected>} />
+              <Route path="/hr/master/users" element={<Protected><MasterUsers /></Protected>} />
             </Routes>
           </BrowserRouter>
         </CandidateAuthProvider>

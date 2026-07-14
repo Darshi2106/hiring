@@ -1,0 +1,39 @@
+{
+  "summary": "Iteration 3 backend testing complete. 40/40 tests passed (18 iteration 1/2 regression + 22 new iteration 3). All new features verified: master admin seed & login, role guards (master/HR/candidate matrix), master HR user CRUD (list/create/duplicate 409/short-pwd 400/toggle/master-toggle-forbidden 400), deactivated HR blocked on /hr/* with 'Account is deactivated' while login still succeeds, assignment editor GET/PUT with correct_index and duration bounds validation, resume upload (PDF success, bad ext 400, >5MB 413) with HR-protected download, and invite email returning mocked=true/delivered=false when RESEND_API_KEY empty.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/resumes/upload", "issue": "Endpoint has NO authentication — anonymous users can upload files to object storage. Not obviously exploitable via download (HR-only), but wastes storage and lacks rate limiting. Consider requiring candidate or HR auth."},
+      {"endpoint": "POST /api/master/users/{id}/toggle", "issue": "Deactivating an HR still returns a valid access token on login. Consider blocking login for is_active=false accounts, or invalidating existing JWTs, since JWTs remain valid for 8h after deactivation (only require_hr guard rejects; require_master doesn't check is_active)."},
+      {"endpoint": "require_master", "issue": "Does not check is_active. If master admin were ever deactivated (currently blocked, but relies on that check), a stale token still grants master access."},
+      {"endpoint": "POST /api/master/users", "issue": "Only creates hr_admin role; no way to create additional master_admin users via API."}
+    ]
+  },
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_iteration3.py",
+    "/app/backend/tests/backend_test.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "Consider adding auth guard to /api/resumes/upload (currently open to anonymous).",
+    "Optional: reject login when user is_active=false, or invalidate JWT on deactivation (currently deactivation blocks endpoint access via require_hr only)."
+  ],
+  "critical_code_review_comments": [
+    "server.py grew to 700+ lines — split routers into modules (auth, candidate, hr, master, resumes, exam).",
+    "require_hr checks is_active but require_master does not; add same check for consistency (defense-in-depth).",
+    "/api/resumes/upload has no authentication — any anonymous client can push files to object storage.",
+    "storage_svc uses global module-level _storage_key; init_storage failures at startup are only logged, uploads then fail with 500. Consider retry logic or clearer 503.",
+    "auth.seed_admin correctly rehashes when password changes; master admin seeding follows same pattern. bcrypt $2b$ verified.",
+    "email_svc.send_invite_email returns {mocked:true, delivered:false} when RESEND_API_KEY empty (per spec) — good.",
+    "AssignmentIn validates duration bounds (5-240) and MCQ correct_index range — good."
+  ],
+  "updated_files": ["/app/backend/tests/test_iteration3.py"],
+  "success_rate": {"backend": "100% (40/40)", "frontend": "not tested (backend-only request)"},
+  "test_credentials": "HR: hr@cohortdata.com / Cohort@2026. Master: darshan@cohortdata.com / MasterCohort@2026. Both verified working.",
+  "seed_data_creation": "Tests create ephemeral test_hr_*@cohortdata.com HR users (via master), test_cand_it3_*@example.com candidates, test_inv_*@example.com applicants, and one resume upload per run. Deactivated HR account is reactivated at test end. No cleanup endpoints exist, so users accumulate over runs (all prefixed test_).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Run with: REACT_APP_BACKEND_URL=<url> pytest backend/tests/ -o addopts='' (pytest.ini enables xdist which broke fixture sharing; -o addopts='' disables). 40 tests total. New iteration 3 features: master admin (darshan@cohortdata.com), /master/users CRUD, /hr/jobs/{id}/assignment GET/PUT, /resumes/upload+download (no auth on upload, HR-gated download), invite email mocked when RESEND_API_KEY empty.",
+  "rca of the issue": "N/A - no bugs; all functional requirements verified."
+}

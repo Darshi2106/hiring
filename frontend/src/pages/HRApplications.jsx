@@ -4,7 +4,7 @@ import { HRNav } from "@/components/Nav";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Copy, Send, ExternalLink } from "lucide-react";
+import { Copy, Send, ExternalLink, FileText } from "lucide-react";
 
 export default function HRApplications() {
   const [apps, setApps] = useState([]);
@@ -27,7 +27,18 @@ export default function HRApplications() {
       const r = await api.post("/hr/invite", { application_id: appId });
       const url = `${window.location.origin}/exam/${r.data.token}`;
       await navigator.clipboard.writeText(url).catch(() => {});
-      toast.success(r.data.existing ? "Existing invite copied" : "Invite created & link copied");
+      const emailInfo = r.data.email || {};
+      if (emailInfo.delivered) {
+        toast.success("Invite emailed to candidate", { description: "Link also copied to clipboard." });
+      } else if (emailInfo.mocked) {
+        toast.warning("Invite created (email in MOCK mode)", {
+          description: "Set RESEND_API_KEY in backend/.env to enable delivery. Link copied to clipboard.",
+        });
+      } else {
+        toast.warning("Invite created, email delivery failed", {
+          description: (emailInfo.error || "").slice(0, 120) + " — link copied to clipboard.",
+        });
+      }
       load();
     } catch (e) {
       toast.error("Failed to send invite");
@@ -40,6 +51,23 @@ export default function HRApplications() {
     const url = `${window.location.origin}/exam/${token}`;
     await navigator.clipboard.writeText(url).catch(() => {});
     toast.success("Invite link copied");
+  };
+
+  const openResume = async (resumeUrl) => {
+    if (!resumeUrl) return;
+    if (!resumeUrl.startsWith("/api/resumes/")) {
+      // external link
+      window.open(resumeUrl, "_blank");
+      return;
+    }
+    try {
+      const res = await api.get(resumeUrl.replace("/api", ""), { responseType: "blob" });
+      const url = URL.createObjectURL(res.data);
+      window.open(url, "_blank");
+      // note: URL not revoked to allow viewing; browser will GC on tab close
+    } catch (e) {
+      toast.error("Could not open resume");
+    }
   };
 
   const riskColor = (score) => {
@@ -84,6 +112,16 @@ export default function HRApplications() {
                     <td className="px-4 py-3">
                       <div className="font-medium">{a.name}</div>
                       <div className="text-xs text-zinc-500 font-mono">{a.email}</div>
+                      {a.resume_url && (
+                        <button
+                          type="button"
+                          onClick={() => openResume(a.resume_url)}
+                          className="mt-1 text-xs text-brand hover:underline inline-flex items-center gap-1"
+                          data-testid={`view-resume-${a.id}`}
+                        >
+                          <FileText className="w-3 h-3" /> Resume
+                        </button>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-zinc-700">{a.job_title}</td>
                     <td className="px-4 py-3">
