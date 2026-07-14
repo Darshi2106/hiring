@@ -23,7 +23,7 @@ export default function HRSubmission() {
     <div className="min-h-screen bg-white">
       <HRNav />
       <div className="max-w-6xl mx-auto px-6 py-10">
-        <Link to="/hr/applications" className="text-sm text-zinc-500 hover:text-[#002FA7] flex items-center gap-1 mb-4">
+        <Link to="/hr/applications" className="text-sm text-zinc-500 hover:text-[#0f9394] flex items-center gap-1 mb-4">
           <ArrowLeft className="w-4 h-4" /> Back to applications
         </Link>
 

@@ -108,7 +108,7 @@ export default function HRJobEdit() {
             </select>
           </div>
           <div className="flex gap-2 pt-4">
-            <Button type="submit" disabled={saving} className="bg-[#002FA7] hover:bg-[#00227A] rounded-none" data-testid="hr-job-save">
+            <Button type="submit" disabled={saving} className="bg-[#0f9394] hover:bg-[#0b7676] rounded-none" data-testid="hr-job-save">
               {saving ? "Saving..." : isEdit ? "Save changes" : "Create role"}
             </Button>
             <Button type="button" variant="outline" className="rounded-none" onClick={() => nav("/hr/jobs")}>

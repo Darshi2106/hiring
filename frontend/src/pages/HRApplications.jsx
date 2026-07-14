@@ -118,7 +118,7 @@ export default function HRApplications() {
                       ) : (
                         <Button
                           size="sm"
-                          className="bg-[#002FA7] hover:bg-[#00227A] rounded-none"
+                          className="bg-[#0f9394] hover:bg-[#0b7676] rounded-none"
                           disabled={sending === a.id}
                           onClick={() => sendInvite(a.id)}
                           data-testid={`send-invite-${a.id}`}

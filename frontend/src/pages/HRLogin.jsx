@@ -35,18 +35,16 @@ export default function HRLogin() {
   return (
     <div className="min-h-screen bg-white flex">
       {/* left panel */}
-      <div className="hidden md:flex md:w-1/2 bg-[#09090B] text-white p-12 flex-col justify-between">
+      <div className="hidden md:flex md:w-1/2 bg-[#103e43] text-white p-12 flex-col justify-between">
         <Link to="/" className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-white flex items-center justify-center">
-            <span className="text-[#002FA7] font-display font-extrabold text-lg leading-none">C</span>
-          </div>
-          <span className="font-display font-extrabold text-xl">CohortData HR</span>
+          <img src="/logo/cohortdata-logo.png" alt="CohortData" className="h-8 w-auto bg-white p-1" />
+          <span className="text-xs text-zinc-400 border-l border-zinc-600 pl-2">HR Portal</span>
         </Link>
         <div>
           <div className="text-xs uppercase tracking-widest text-zinc-400 mb-3">Hiring workspace</div>
           <h1 className="font-display font-extrabold text-5xl tracking-tighter leading-tight">
             Ship better hires,{" "}
-            <span className="text-[#7FB3FF]">faster.</span>
+            <span className="text-[#f4b932]">faster.</span>
           </h1>
           <p className="mt-4 text-zinc-400 max-w-md">
             Manage openings, review proctored assessments, and screen AI-generated answers —
@@ -74,13 +72,13 @@ export default function HRLogin() {
               <Label htmlFor="password">Password</Label>
               <Input id="password" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} className="rounded-none mt-1" data-testid="hr-login-password" />
             </div>
-            <Button type="submit" disabled={loading} className="w-full bg-[#002FA7] hover:bg-[#00227A] rounded-none" data-testid="hr-login-submit">
+            <Button type="submit" disabled={loading} className="w-full bg-[#0f9394] hover:bg-[#0b7676] rounded-none" data-testid="hr-login-submit">
               {loading ? "Signing in..." : "Sign in"}
             </Button>
           </form>
 
           <div className="mt-6 text-xs text-zinc-400">
-            Not HR? <Link to="/careers" className="text-[#002FA7] hover:underline">Go to careers page</Link>
+            Not HR? <Link to="/careers" className="text-[#0f9394] hover:underline">Go to careers page</Link>
           </div>
         </div>
       </div>

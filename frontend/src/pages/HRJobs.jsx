@@ -37,7 +37,7 @@ export default function HRJobs() {
             <h1 className="font-display font-extrabold text-4xl tracking-tighter">Jobs</h1>
           </div>
           <Link to="/hr/jobs/new">
-            <Button className="bg-[#002FA7] hover:bg-[#00227A] rounded-none" data-testid="hr-new-job-btn">
+            <Button className="bg-[#0f9394] hover:bg-[#0b7676] rounded-none" data-testid="hr-new-job-btn">
               <Plus className="w-4 h-4 mr-1" /> New role
             </Button>
           </Link>

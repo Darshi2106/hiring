@@ -34,7 +34,7 @@ export default function CareersList() {
             </div>
             <h1 className="font-display font-extrabold text-5xl md:text-6xl lg:text-7xl tracking-tighter leading-[0.95]">
               Build the future of{" "}
-              <span className="text-[#002FA7]">AI data infrastructure.</span>
+              <span className="text-[#0f9394]">AI data infrastructure.</span>
             </h1>
             <p className="mt-6 text-lg text-zinc-600 max-w-2xl leading-relaxed">
               Join CohortData — a team building multimodal AI systems, annotation pipelines,
@@ -43,7 +43,7 @@ export default function CareersList() {
             </p>
             <div className="mt-8 flex gap-3">
               <a href="#roles">
-                <Button className="bg-[#002FA7] hover:bg-[#00227A] rounded-none px-6" data-testid="hero-explore-btn">
+                <Button className="bg-[#0f9394] hover:bg-[#0b7676] rounded-none px-6" data-testid="hero-explore-btn">
                   Explore Open Roles <ArrowRight className="w-4 h-4 ml-2" />
                 </Button>
               </a>
@@ -108,7 +108,7 @@ export default function CareersList() {
                       {job.department}
                     </Badge>
                   </div>
-                  <h3 className="font-display font-extrabold text-xl md:text-2xl tracking-tight group-hover:text-[#002FA7] transition-colors">
+                  <h3 className="font-display font-extrabold text-xl md:text-2xl tracking-tight group-hover:text-[#0f9394] transition-colors">
                     {job.title}
                   </h3>
                   <div className="mt-2 flex items-center gap-4 text-sm text-zinc-500">
@@ -118,7 +118,7 @@ export default function CareersList() {
                     <span>{job.type}</span>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 text-sm font-medium text-[#002FA7]">
+                <div className="flex items-center gap-2 text-sm font-medium text-[#0f9394]">
                   View role <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                 </div>
               </Link>

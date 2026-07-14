@@ -12,8 +12,10 @@
   --text: #09090b;
   --text-2: #71717a;
   --muted: #a1a1aa;
-  --brand: #002fa7;
-  --brand-hover: #00227a;
+  --brand: #0f9394;
+  --brand-hover: #0b7676;
+  --brand-dark: #103e43;
+  --accent-yellow: #f4b932;
   --danger: #e53935;
   --danger-bg: #fef2f2;
   --success: #16a34a;
@@ -48,7 +50,7 @@ h1, h2, h3, h4, .font-display {
     --card-foreground: 240 6% 10%;
     --popover: 0 0% 100%;
     --popover-foreground: 240 6% 10%;
-    --primary: 223 100% 33%;
+    --primary: 181 82% 32%;
     --primary-foreground: 0 0% 98%;
     --secondary: 240 5% 96%;
     --secondary-foreground: 240 6% 10%;
@@ -60,7 +62,7 @@ h1, h2, h3, h4, .font-display {
     --destructive-foreground: 0 0% 98%;
     --border: 240 6% 90%;
     --input: 240 6% 90%;
-    --ring: 223 100% 33%;
+    --ring: 181 82% 32%;
     --radius: 0.375rem;
   }
 }
@@ -90,6 +92,16 @@ h1, h2, h3, h4, .font-display {
 .code-editor:focus {
   border-color: var(--brand);
 }
+
+/* Brand utility classes */
+.bg-brand { background-color: #0f9394; }
+.bg-brand:hover { background-color: #0b7676; }
+.text-brand { color: #0f9394; }
+.border-brand { border-color: #0f9394; }
+.bg-brand-dark { background-color: #103e43; }
+.text-brand-dark { color: #103e43; }
+.text-accent-yellow { color: #f4b932; }
+.bg-accent-yellow { background-color: #f4b932; }
 
 /* Violation flash */
 @keyframes danger-flash {

@@ -271,7 +271,7 @@ export default function Exam() {
             <RuleItem>{`${MAX_VIOLATIONS} violations = auto-submit.`}</RuleItem>
           </ul>
 
-          <Button onClick={startExam} className="mt-8 bg-[#002FA7] hover:bg-[#00227A] rounded-none px-6 py-6" data-testid="exam-start-btn">
+          <Button onClick={startExam} className="mt-8 bg-[#0f9394] hover:bg-[#0b7676] rounded-none px-6 py-6" data-testid="exam-start-btn">
             <Maximize className="w-4 h-4 mr-2" /> Enable camera & start
           </Button>
         </div>
@@ -285,7 +285,7 @@ export default function Exam() {
       <div className="border-b border-zinc-200 bg-white sticky top-0 z-40">
         <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Lock className="w-4 h-4 text-[#002FA7]" />
+            <Lock className="w-4 h-4 text-[#0f9394]" />
             <span className="font-display font-extrabold text-sm">{exam.job_title}</span>
           </div>
           <div className="flex items-center gap-4">
@@ -394,7 +394,7 @@ export default function Exam() {
         <div className="mt-8 flex justify-end gap-2">
           <Button
             onClick={() => submit(false)}
-            className="bg-[#002FA7] hover:bg-[#00227A] rounded-none px-8"
+            className="bg-[#0f9394] hover:bg-[#0b7676] rounded-none px-8"
             data-testid="exam-submit-btn"
           >
             Submit assessment
@@ -418,7 +418,7 @@ function FullMsg({ text, tone }) {
 
 function Stat({ label, value }) {
   return (
-    <div className="border-l-2 border-[#002FA7] pl-3">
+    <div className="border-l-2 border-[#0f9394] pl-3">
       <div className="font-mono">{value}</div>
       <div className="text-zinc-500">{label}</div>
     </div>
@@ -428,7 +428,7 @@ function Stat({ label, value }) {
 function RuleItem({ children }) {
   return (
     <li className="flex gap-2">
-      <span className="text-[#002FA7]">•</span>
+      <span className="text-[#0f9394]">•</span>
       <span>{children}</span>
     </li>
   );
@@ -440,7 +440,7 @@ function TabBtn({ active, onClick, children, testId }) {
       onClick={onClick}
       data-testid={testId}
       className={`px-4 py-2 text-sm border-b-2 transition-colors ${
-        active ? "border-[#002FA7] text-[#002FA7] font-medium" : "border-transparent text-zinc-500 hover:text-zinc-800"
+        active ? "border-[#0f9394] text-[#0f9394] font-medium" : "border-transparent text-zinc-500 hover:text-zinc-800"
       }`}
     >
       {children}

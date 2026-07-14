@@ -25,7 +25,7 @@ export default function JobDetail() {
       <div className="max-w-4xl mx-auto px-6 py-12">
         <button
           onClick={() => navigate(-1)}
-          className="text-sm text-zinc-500 hover:text-[#002FA7] flex items-center gap-1 mb-6 transition-colors"
+          className="text-sm text-zinc-500 hover:text-[#0f9394] flex items-center gap-1 mb-6 transition-colors"
           data-testid="job-detail-back"
         >
           <ArrowLeft className="w-4 h-4" /> Back to roles
@@ -56,7 +56,7 @@ export default function JobDetail() {
             <ul className="mt-3 space-y-2">
               {job.requirements.map((r, i) => (
                 <li key={i} className="flex items-start gap-2 text-zinc-700">
-                  <CheckCircle2 className="w-4 h-4 mt-0.5 text-[#002FA7] shrink-0" /> {r}
+                  <CheckCircle2 className="w-4 h-4 mt-0.5 text-[#0f9394] shrink-0" /> {r}
                 </li>
               ))}
             </ul>
@@ -65,7 +65,7 @@ export default function JobDetail() {
 
         <section className="mt-8 border border-zinc-200 p-5 bg-zinc-50">
           <div className="flex items-center gap-2 text-sm font-medium">
-            <ShieldCheck className="w-4 h-4 text-[#002FA7]" /> Proctored, AI-guarded assessment
+            <ShieldCheck className="w-4 h-4 text-[#0f9394]" /> Proctored, AI-guarded assessment
           </div>
           <p className="mt-2 text-xs text-zinc-600">
             After applying, if shortlisted, HR will invite you via a unique one-time link to a
@@ -74,19 +74,19 @@ export default function JobDetail() {
           </p>
           {job.assignment_summary && (
             <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
-              <div className="border-l-2 border-[#002FA7] pl-2">
+              <div className="border-l-2 border-[#0f9394] pl-2">
                 <div className="font-mono">{job.assignment_summary.duration_minutes} min</div>
                 <div className="text-zinc-500">Duration</div>
               </div>
-              <div className="border-l-2 border-[#002FA7] pl-2">
+              <div className="border-l-2 border-[#0f9394] pl-2">
                 <div className="font-mono">{job.assignment_summary.mcq_count}</div>
                 <div className="text-zinc-500">MCQs</div>
               </div>
-              <div className="border-l-2 border-[#002FA7] pl-2">
+              <div className="border-l-2 border-[#0f9394] pl-2">
                 <div className="font-mono">{job.assignment_summary.sa_count}</div>
                 <div className="text-zinc-500">Short answers</div>
               </div>
-              <div className="border-l-2 border-[#002FA7] pl-2">
+              <div className="border-l-2 border-[#0f9394] pl-2">
                 <div className="font-mono">{job.assignment_summary.has_coding ? "Yes" : "No"}</div>
                 <div className="text-zinc-500">Coding task</div>
               </div>
@@ -96,7 +96,7 @@ export default function JobDetail() {
 
         <div className="mt-10">
           <Link to={`/careers/${job.id}/apply`}>
-            <Button className="bg-[#002FA7] hover:bg-[#00227A] rounded-none px-8 py-6" data-testid="apply-btn">
+            <Button className="bg-[#0f9394] hover:bg-[#0b7676] rounded-none px-8 py-6" data-testid="apply-btn">
               Apply for this role
             </Button>
           </Link>

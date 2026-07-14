@@ -57,7 +57,7 @@ export default function HRDashboard() {
           <div className="border border-zinc-200 p-6">
             <div className="flex justify-between items-center mb-4">
               <h2 className="font-display font-extrabold text-xl">Recent applications</h2>
-              <Link to="/hr/applications" className="text-sm text-[#002FA7] hover:underline flex items-center gap-1" data-testid="dashboard-view-all-apps">
+              <Link to="/hr/applications" className="text-sm text-[#0f9394] hover:underline flex items-center gap-1" data-testid="dashboard-view-all-apps">
                 View all <ArrowRight className="w-3 h-3" />
               </Link>
             </div>
@@ -83,15 +83,15 @@ export default function HRDashboard() {
           <div className="border border-zinc-200 p-6">
             <h2 className="font-display font-extrabold text-xl mb-4">Quick actions</h2>
             <div className="space-y-2">
-              <Link to="/hr/jobs/new" className="block border border-zinc-200 p-3 hover:border-[#002FA7] transition-colors" data-testid="dashboard-action-new-job">
+              <Link to="/hr/jobs/new" className="block border border-zinc-200 p-3 hover:border-[#0f9394] transition-colors" data-testid="dashboard-action-new-job">
                 <div className="font-medium text-sm">+ Post a new role</div>
                 <div className="text-xs text-zinc-500 mt-0.5">Create a job opening with a default proctored assignment.</div>
               </Link>
-              <Link to="/hr/applications" className="block border border-zinc-200 p-3 hover:border-[#002FA7] transition-colors" data-testid="dashboard-action-review">
+              <Link to="/hr/applications" className="block border border-zinc-200 p-3 hover:border-[#0f9394] transition-colors" data-testid="dashboard-action-review">
                 <div className="font-medium text-sm">Review applications</div>
                 <div className="text-xs text-zinc-500 mt-0.5">Send assignment invites and review submissions.</div>
               </Link>
-              <Link to="/hr/jobs" className="block border border-zinc-200 p-3 hover:border-[#002FA7] transition-colors" data-testid="dashboard-action-jobs">
+              <Link to="/hr/jobs" className="block border border-zinc-200 p-3 hover:border-[#0f9394] transition-colors" data-testid="dashboard-action-jobs">
                 <div className="font-medium text-sm">Manage jobs</div>
                 <div className="text-xs text-zinc-500 mt-0.5">Edit descriptions, close roles, tune assessments.</div>
               </Link>
