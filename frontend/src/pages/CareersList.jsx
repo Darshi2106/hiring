@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { PublicNav } from "@/components/Nav";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -10,13 +10,17 @@ export default function CareersList() {
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("All");
+  const [params] = useSearchParams();
 
   useEffect(() => {
+    // Track application source for attribution (careers_direct, referral, linkedin, twitter, etc.)
+    const src = params.get("src") || params.get("utm_source") || document.referrer ? (params.get("src") || params.get("utm_source") || "external_referrer") : "careers_direct";
+    if (src) localStorage.setItem("cd_source", src);
     api.get("/jobs").then((r) => {
       setJobs(r.data);
       setLoading(false);
     });
-  }, []);
+  }, [params]);
 
   const departments = ["All", ...Array.from(new Set(jobs.map((j) => j.department)))];
   const filtered = filter === "All" ? jobs : jobs.filter((j) => j.department === filter);

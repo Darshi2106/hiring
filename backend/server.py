@@ -90,6 +90,7 @@ class ApplyIn(BaseModel):
     phone: Optional[str] = ""
     resume_url: Optional[str] = ""
     cover_letter: Optional[str] = ""
+    source: Optional[str] = "careers_direct"
 
 
 class InviteIn(BaseModel):
@@ -329,6 +330,7 @@ async def apply(body: ApplyIn, request: Request):
         "phone": body.phone,
         "resume_url": body.resume_url,
         "cover_letter": body.cover_letter,
+        "source": (body.source or "careers_direct").lower()[:40],
         "status": "applied",
         "created_at": now,
     }
@@ -451,11 +453,81 @@ async def hr_stats(_user=Depends(require_hr)):
     total_apps = await db.applications.count_documents({})
     total_subs = await db.submissions.count_documents({})
     high_risk = await db.submissions.count_documents({"ai_risk_avg": {"$gte": 60}})
+    shortlisted = await db.applications.count_documents({"status": "interview_scheduled"})
     return {
         "open_jobs": total_jobs,
         "total_applications": total_apps,
         "submissions": total_subs,
         "high_ai_risk": high_risk,
+        "interview_scheduled": shortlisted,
+    }
+
+
+@api.get("/hr/stats/time-to-hire")
+async def time_to_hire(_user=Depends(require_hr)):
+    """Median hours per pipeline stage transition, plus by-source & by-role slices."""
+    def _hrs(a_iso, b_iso):
+        if not a_iso or not b_iso:
+            return None
+        try:
+            a = datetime.fromisoformat(a_iso.replace("Z", "+00:00"))
+            b = datetime.fromisoformat(b_iso.replace("Z", "+00:00"))
+            return max(0, (b - a).total_seconds() / 3600.0)
+        except Exception:
+            return None
+
+    def _median(values):
+        vs = sorted(v for v in values if v is not None)
+        if not vs:
+            return None
+        n = len(vs)
+        mid = n // 2
+        if n % 2 == 1:
+            return round(vs[mid], 1)
+        return round((vs[mid - 1] + vs[mid]) / 2, 1)
+
+    apps = await db.applications.find({}).to_list(5000)
+    invites = {i["application_id"]: i async for i in db.invites.find({})}
+    subs = {s["application_id"]: s async for s in db.submissions.find({})}
+
+    per_app_stages = []
+    by_source = {}
+    by_role = {}
+    for a in apps:
+        aid = str(a["_id"])
+        inv = invites.get(aid)
+        sub = subs.get(aid)
+        applied = a.get("created_at")
+        invited = inv.get("created_at") if inv else None
+        submitted = sub.get("submitted_at") if sub else None
+        # interview_scheduled — best-proxy: application status transitioned but we don't have timestamp
+        # So use interview_scheduled iff status is interview_scheduled, and use submitted_at as proxy
+        s_applied_to_invited = _hrs(applied, invited)
+        s_invited_to_submitted = _hrs(invited, submitted)
+        s_applied_to_shortlist = _hrs(applied, submitted) if a.get("status") == "interview_scheduled" else None
+        row = {
+            "applied_to_invited": s_applied_to_invited,
+            "invited_to_submitted": s_invited_to_submitted,
+            "applied_to_shortlist": s_applied_to_shortlist,
+        }
+        per_app_stages.append(row)
+        src = a.get("source", "unknown")
+        by_source.setdefault(src, []).append(row)
+        role = a.get("job_title", "unknown")
+        by_role.setdefault(role, []).append(row)
+
+    def _summarize(rows):
+        return {
+            "applied_to_invited_hrs": _median([r["applied_to_invited"] for r in rows]),
+            "invited_to_submitted_hrs": _median([r["invited_to_submitted"] for r in rows]),
+            "applied_to_shortlist_hrs": _median([r["applied_to_shortlist"] for r in rows]),
+            "count": len(rows),
+        }
+
+    return {
+        "overall": _summarize(per_app_stages),
+        "by_source": {k: _summarize(v) for k, v in by_source.items()},
+        "by_role": {k: _summarize(v) for k, v in by_role.items()},
     }
 
 
@@ -806,28 +878,110 @@ async def toggle_hr_user(user_id: str, _user=Depends(require_master)):
 
 
 # ---------------- Question bank ----------------
+async def _custom_modules():
+    """Master-admin created modules from DB (in addition to seeded ones)."""
+    docs = await db.custom_modules.find({"is_deleted": {"$ne": True}}).to_list(500)
+    result = []
+    for d in docs:
+        result.append({
+            "id": d["id"],
+            "title": d["title"],
+            "category": d["category"],
+            "description": d.get("description", ""),
+            "count": len(d.get("questions", [])),
+            "questions": d.get("questions", []),
+            "is_custom": True,
+        })
+    return result
+
+
 @api.get("/hr/question-bank")
 async def list_modules(_user=Depends(require_hr)):
-    return [
+    seed = [
         {"id": m["id"], "title": m["title"], "category": m["category"],
-         "description": m["description"], "count": m["count"]}
+         "description": m["description"], "count": m["count"], "is_custom": False}
         for m in all_modules()
     ]
+    custom = [{k: v for k, v in m.items() if k != "questions"} for m in await _custom_modules()]
+    return seed + custom
 
 
 @api.get("/hr/question-bank/{module_id}")
 async def get_module_detail(module_id: str, _user=Depends(require_hr)):
     m = get_module(module_id)
-    if not m:
-        raise HTTPException(status_code=404, detail="Module not found")
-    return {
-        **m,
-        "questions": get_questions_by_ids(m["question_ids"]),
+    if m:
+        return {**m, "questions": get_questions_by_ids(m["question_ids"]), "is_custom": False}
+    doc = await db.custom_modules.find_one({"id": module_id, "is_deleted": {"$ne": True}})
+    if doc:
+        return {
+            "id": doc["id"], "title": doc["title"], "category": doc["category"],
+            "description": doc.get("description", ""),
+            "questions": doc.get("questions", []),
+            "count": len(doc.get("questions", [])),
+            "is_custom": True,
+        }
+    raise HTTPException(status_code=404, detail="Module not found")
+
+
+# ---------------- Master admin: Question bank CRUD ----------------
+class ModuleIn(BaseModel):
+    id: str = Field(..., pattern=r"^[a-z0-9_]+$")
+    title: str
+    category: str
+    description: str = ""
+    questions: List[dict] = []
+
+
+@api.post("/master/question-bank/modules")
+async def create_custom_module(body: ModuleIn, _user=Depends(require_master)):
+    if get_module(body.id):
+        raise HTTPException(status_code=409, detail="Module id collides with a seeded module")
+    if await db.custom_modules.find_one({"id": body.id}):
+        raise HTTPException(status_code=409, detail="Module id already exists")
+    doc = {
+        **body.model_dump(),
+        "is_deleted": False,
+        "created_at": datetime.now(timezone.utc).isoformat(),
     }
+    await db.custom_modules.insert_one(doc)
+    return {"ok": True, "id": body.id}
+
+
+@api.put("/master/question-bank/modules/{module_id}")
+async def update_custom_module(module_id: str, body: ModuleIn, _user=Depends(require_master)):
+    doc = await db.custom_modules.find_one({"id": module_id, "is_deleted": {"$ne": True}})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Custom module not found")
+    updates = body.model_dump()
+    updates["id"] = module_id  # id is immutable
+    await db.custom_modules.update_one({"id": module_id}, {"$set": updates})
+    return {"ok": True}
+
+
+@api.delete("/master/question-bank/modules/{module_id}")
+async def delete_custom_module(module_id: str, _user=Depends(require_master)):
+    r = await db.custom_modules.update_one({"id": module_id}, {"$set": {"is_deleted": True}})
+    if r.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Custom module not found")
+    return {"ok": True}
 
 
 class ImportIn(BaseModel):
     question_ids: List[str]
+
+
+async def _resolve_questions(question_ids):
+    """Resolve question ids across seeded + custom modules."""
+    resolved = list(get_questions_by_ids(question_ids))
+    resolved_ids = {q["id"] for q in resolved}
+    missing = [q for q in question_ids if q not in resolved_ids]
+    if missing:
+        # try to find them in custom modules
+        for doc in await db.custom_modules.find({"is_deleted": {"$ne": True}}).to_list(500):
+            for q in doc.get("questions", []):
+                if q.get("id") in missing:
+                    resolved.append(q)
+    return resolved
 
 
 @api.post("/hr/jobs/{job_id}/assignment/import")
@@ -838,7 +992,6 @@ async def import_questions(job_id: str, body: ImportIn, _user=Depends(require_hr
     a = job.get("assignment") or default_assignment("engineering")
     a.setdefault("mcqs", [])
     a.setdefault("short_answers", [])
-    # migrate legacy `coding` -> `coding_tasks`
     if a.get("coding") and not a.get("coding_tasks"):
         a["coding_tasks"] = [a["coding"]]
     a.setdefault("coding_tasks", [])
@@ -850,7 +1003,8 @@ async def import_questions(job_id: str, body: ImportIn, _user=Depends(require_hr
         | {c["id"] for c in a["coding_tasks"]}
     )
     added_mcq = added_sa = added_code = 0
-    for q in get_questions_by_ids(body.question_ids):
+    resolved = await _resolve_questions(body.question_ids)
+    for q in resolved:
         if q["id"] in existing_ids:
             continue
         if q["type"] == "mcq":

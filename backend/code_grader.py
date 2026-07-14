@@ -91,21 +91,79 @@ def grade_python(candidate_code: str, test_code: str, timeout_s: int = DEFAULT_T
             pass
 
 
+def grade_javascript(candidate_code: str, test_code: str, timeout_s: int = DEFAULT_TIMEOUT_S) -> dict:
+    """Run candidate JS + test harness in a Node subprocess."""
+    if not candidate_code or not candidate_code.strip():
+        return {"passed": False, "error": "empty submission", "stdout": "", "stderr": "", "duration_ms": 0}
+
+    # Strip ESM imports (assume browser globals like React aren't needed in pure JS tests)
+    # Provide minimal browser-ish globals
+    program = (
+        "// candidate code\n"
+        f"{candidate_code}\n\n"
+        "// test harness\n"
+        "const assert = require('assert');\n"
+        f"(async () => {{\n{test_code}\n  console.log('__ALL_TESTS_PASSED__');\n}})().catch(e => {{ console.error(e && e.stack || e); process.exit(1); }});\n"
+    )
+    tmp = tempfile.NamedTemporaryFile(
+        mode="w", suffix=".js", delete=False, dir="/tmp"
+    )
+    try:
+        tmp.write(program)
+        tmp.flush()
+        tmp.close()
+        import time
+        t0 = time.perf_counter()
+        try:
+            result = subprocess.run(
+                ["node", "--max-old-space-size=256", tmp.name],
+                capture_output=True,
+                text=True,
+                timeout=timeout_s,
+                env={"PATH": os.environ.get("PATH", ""), "NODE_ENV": "test"},
+            )
+            duration_ms = int((time.perf_counter() - t0) * 1000)
+        except subprocess.TimeoutExpired:
+            return {"passed": False, "error": "timeout",
+                    "stdout": "", "stderr": f"Exceeded {timeout_s}s time limit",
+                    "duration_ms": timeout_s * 1000}
+        passed = result.returncode == 0 and "__ALL_TESTS_PASSED__" in (result.stdout or "")
+        return {
+            "passed": passed,
+            "returncode": result.returncode,
+            "stdout": (result.stdout or "")[:3000],
+            "stderr": (result.stderr or "")[:3000],
+            "duration_ms": duration_ms,
+        }
+    except Exception as e:
+        return {"passed": False, "error": f"grader_error: {str(e)[:200]}", "stdout": "", "stderr": "", "duration_ms": 0}
+    finally:
+        try:
+            os.unlink(tmp.name)
+        except Exception:
+            pass
+
+
 def grade_task(task: dict, candidate_code: str) -> dict:
-    """Grade one coding task.
-    Task fields: id, prompt, starter_code, language, test_code (optional).
-    """
+    """Grade one coding task. Supports python + javascript with test harnesses."""
     lang = (task or {}).get("language", "python").lower()
     tests = (task or {}).get("test_code", "")
     task_id = (task or {}).get("id", "unknown")
 
-    if not tests or lang != "python":
+    if not tests:
         return {
-            "task_id": task_id,
-            "language": lang,
-            "passed": None,
+            "task_id": task_id, "language": lang, "passed": None,
             "needs_manual_review": True,
-            "message": "Automated grading unavailable for this task.",
+            "message": "No test harness — manual review required.",
         }
-    result = grade_python(candidate_code, tests)
-    return {"task_id": task_id, "language": lang, "needs_manual_review": False, **result}
+    if lang == "python":
+        r = grade_python(candidate_code, tests)
+    elif lang in ("javascript", "js", "typescript", "ts"):
+        r = grade_javascript(candidate_code, tests)
+    else:
+        return {
+            "task_id": task_id, "language": lang, "passed": None,
+            "needs_manual_review": True,
+            "message": f"Auto-grading not supported for language '{lang}'.",
+        }
+    return {"task_id": task_id, "language": lang, "needs_manual_review": False, **r}

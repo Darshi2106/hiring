@@ -1,0 +1,31 @@
+{
+  "summary": "Iteration 7 backend tests: JS grader (correct/broken/timeout), Python grader regression, application `source` attribution, time-to-hire endpoint, master-admin QB CRUD & permissions, and import-from-custom-module. All 10 new tests pass. Regression across iterations 3-6: 59/60 pass; the single failure (test_iteration4::test_schedule_without_calendly_400) is a pre-existing HR-state issue unrelated to iter7 (a calendly_url is already saved so the endpoint returns 200 instead of 400).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "/api/hr/settings (or wherever calendly_url is stored)", "issue": "Pre-existing iteration_4 test test_schedule_without_calendly_400 fails because a calendly_url is already persisted. Not an iter-7 regression, but worth noting — test needs to clear calendly_url first or the endpoint should not silently accept when unset."}
+    ]
+  },
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_iteration7.py",
+    "/app/test_reports/pytest/iteration7.xml"
+  ],
+  "action_items": [
+    "Consider clearing calendly_url in a fixture for test_iteration4::test_schedule_without_calendly_400, or make the endpoint idempotent w.r.t. shared state."
+  ],
+  "critical_code_review_comments": [
+    "code_grader.grade_javascript wraps test_code in an async IIFE — correct for `await` usage, but SIGKILL from Node OOM (--max-old-space-size=256) will be reported as returncode!=0 rather than a specific memory error; consider labeling.",
+    "server.py time_to_hire loads all applications + all invites + all submissions into memory (up to 5000). Fine at current scale but should paginate/aggregate at scale.",
+    "server.py _resolve_questions iterates every custom module doc every import — an index/lookup by q.id would be cleaner.",
+    "Master QB CRUD accepts arbitrary `questions` list without Pydantic validation of question shape (mcq weights, correct_index bounds). A malformed question could break import/exam. Recommend nested models.",
+    "ApplyIn.source is trimmed to 40 chars and lowercased — good; but no enum whitelist which could clutter by_source dashboards."
+  ],
+  "updated_files": ["/app/backend/tests/test_iteration7.py"],
+  "success_rate": {"backend": "100% (10/10 iter7); 98% (59/60) regression iter3-6", "frontend": "not tested"},
+  "test_credentials": "HR: hr@cohortdata.com / Cohort@2026 ; Master: darshan@cohortdata.com / MasterCohort@2026",
+  "seed_data_creation": "Test creates ephemeral jobs, applications, candidates and custom modules. Custom modules used in tests: soft-deleted (CRUD test) and cleaned up (import test). CRUD test's created module is deleted as part of the DELETE step.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "JS grader wraps test_code in `(async () => { ... })()` and prepends `const assert = require('assert');`. Coding tasks require `test_code` with `assert.*` calls; empty test_code = manual review. Submission responses expose `submission_id`; details via GET /api/hr/submissions/{id}. Custom modules: question `id` is stored as-provided (unlike seeded ones which are auto-prefixed by module_id::). So import from custom uses the raw q.id."
+}

@@ -107,11 +107,18 @@ export function HRNav() {
             </Button>
           </Link>
           {user?.role === "master_admin" && (
-            <Link to="/hr/master/users" data-testid="hr-nav-master">
-              <Button variant="ghost" size="sm">
-                <Shield className="w-4 h-4 mr-1.5" /> Users
-              </Button>
-            </Link>
+            <>
+              <Link to="/hr/master/users" data-testid="hr-nav-master">
+                <Button variant="ghost" size="sm">
+                  <Shield className="w-4 h-4 mr-1.5" /> Users
+                </Button>
+              </Link>
+              <Link to="/hr/master/question-bank" data-testid="hr-nav-master-qb">
+                <Button variant="ghost" size="sm">
+                  <Shield className="w-4 h-4 mr-1.5" /> Q-Bank
+                </Button>
+              </Link>
+            </>
           )}
           <div className="w-px h-6 bg-zinc-200 mx-2" />
           <span className="text-xs text-zinc-500 hidden md:inline">{user?.email}</span>

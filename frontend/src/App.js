@@ -61,6 +61,7 @@ export default function App() {
               <Route path="/hr/applications" element={<Protected><HRApplications /></Protected>} />
               <Route path="/hr/submissions/:submissionId" element={<Protected><HRSubmission /></Protected>} />
               <Route path="/hr/master/users" element={<Protected><MasterUsers /></Protected>} />
+              <Route path="/hr/master/question-bank" element={<Protected><MasterQuestionBank /></Protected>} />
             </Routes>
           </BrowserRouter>
         </CandidateAuthProvider>

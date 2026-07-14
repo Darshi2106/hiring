@@ -81,7 +81,8 @@ export default function Apply() {
     setSubmitting(true);
     try {
       const client = candidate ? candidateApi : api;
-      await client.post("/applications", { job_id: jobId, ...form });
+      const source = localStorage.getItem("cd_source") || "careers_direct";
+      await client.post("/applications", { job_id: jobId, ...form, source });
       toast.success("Application submitted");
       setSubmitted(true);
     } catch (err) {
