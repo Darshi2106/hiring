@@ -33,6 +33,7 @@ from question_bank import (
     get_module,
     get_questions_by_ids,
 )
+from code_grader import grade_task
 
 # ---------------- DB ----------------
 mongo_url = os.environ["MONGO_URL"]
@@ -104,6 +105,8 @@ class SubmitAnswersIn(BaseModel):
     invite_token: str
     mcq_answers: dict  # {mcq_id: option_index}
     short_answers: dict  # {sa_id: text}
+    coding_answers: dict = {}  # {task_id: code}
+    # Backwards-compat: also accept legacy single coding_answer
     coding_answer: Optional[str] = ""
     violations: List[dict] = []
     webcam_snapshots: List[str] = []  # base64 data URLs
@@ -137,6 +140,16 @@ async def startup():
     await seed_admin(db)
     await seed_jobs(db)
     await seed_question_bank(db)
+    # Migrate old `coding` object -> `coding_tasks` array on any existing jobs
+    async for j in db.jobs.find({"assignment.coding": {"$exists": True}}):
+        a = j.get("assignment") or {}
+        old_coding = a.get("coding")
+        tasks = a.get("coding_tasks") or []
+        if old_coding and not tasks:
+            tasks = [old_coding]
+        a["coding_tasks"] = tasks
+        a.pop("coding", None)
+        await db.jobs.update_one({"_id": j["_id"]}, {"$set": {"assignment": a}})
     # Backfill default Calendly URL on any job missing it
     default_calendly = os.environ.get("DEFAULT_CALENDLY_URL", "").strip()
     if default_calendly:
@@ -264,11 +277,14 @@ async def get_job(job_id: str):
     # Don't leak MCQ correct answers to public
     if doc.get("assignment"):
         a = doc["assignment"]
+        # Backwards-compat: legacy "coding" -> coding_tasks
+        tasks = a.get("coding_tasks") or ([a["coding"]] if a.get("coding") else [])
         public_a = {
             "duration_minutes": a.get("duration_minutes", 60),
             "mcq_count": len(a.get("mcqs", [])),
             "sa_count": len(a.get("short_answers", [])),
-            "has_coding": bool(a.get("coding")),
+            "coding_count": len(tasks),
+            "has_coding": len(tasks) > 0,
         }
         doc["assignment_summary"] = public_a
         doc.pop("assignment", None)
@@ -460,6 +476,13 @@ async def get_exam(token: str):
         {"id": m["id"], "question": m["question"], "options": m["options"]}
         for m in a.get("mcqs", [])
     ]
+    # Backwards-compat: legacy "coding" -> coding_tasks
+    coding_tasks = a.get("coding_tasks") or ([a["coding"]] if a.get("coding") else [])
+    # Strip test_code from candidate view
+    coding_tasks_public = [
+        {k: v for k, v in t.items() if k != "test_code"}
+        for t in coding_tasks
+    ]
     return {
         "invite_token": token,
         "candidate_name": inv["candidate_name"],
@@ -467,7 +490,7 @@ async def get_exam(token: str):
         "duration_minutes": a.get("duration_minutes", 60),
         "mcqs": mcqs_public,
         "short_answers": a.get("short_answers", []),
-        "coding": a.get("coding"),
+        "coding_tasks": coding_tasks_public,
         "status": inv["status"],
     }
 
@@ -544,6 +567,19 @@ async def submit_exam(body: SubmitAnswersIn):
         app_status = "assignment_submitted"
 
     now = datetime.now(timezone.utc).isoformat()
+
+    # Backwards-compat: convert legacy single coding_answer to dict
+    coding_answers = dict(body.coding_answers or {})
+    legacy_tasks = a.get("coding_tasks") or ([a["coding"]] if a.get("coding") else [])
+    if body.coding_answer and legacy_tasks and not coding_answers:
+        coding_answers[legacy_tasks[0]["id"]] = body.coding_answer
+
+    # Auto-grade each coding task
+    coding_results = {}
+    for task in legacy_tasks:
+        cand_code = coding_answers.get(task["id"], "")
+        coding_results[task["id"]] = grade_task(task, cand_code)
+
     sub_doc = {
         "invite_token": body.invite_token,
         "application_id": inv["application_id"],
@@ -552,7 +588,10 @@ async def submit_exam(body: SubmitAnswersIn):
         "candidate_email": inv["candidate_email"],
         "mcq_answers": body.mcq_answers,
         "short_answers": body.short_answers,
-        "coding_answer": body.coding_answer,
+        "coding_answers": coding_answers,
+        "coding_results": coding_results,
+        # legacy field for backwards compat with existing UI/tests
+        "coding_answer": body.coding_answer or (list(coding_answers.values())[0] if coding_answers else ""),
         "ai_results": ai_results,
         "ai_risk_avg": ai_risk_avg,
         "ai_risk_max": ai_risk_max,
@@ -680,13 +719,15 @@ class CodingItem(BaseModel):
     prompt: str
     starter_code: str = ""
     weight: int = 1
+    language: str = "python"
+    test_code: str = ""
 
 
 class AssignmentIn(BaseModel):
     duration_minutes: int = 60
     mcqs: List[MCQItem] = []
     short_answers: List[ShortAnswerItem] = []
-    coding: Optional[CodingItem] = None
+    coding_tasks: List[CodingItem] = []
 
 
 @api.get("/hr/jobs/{job_id}/assignment")
@@ -797,13 +838,16 @@ async def import_questions(job_id: str, body: ImportIn, _user=Depends(require_hr
     a = job.get("assignment") or default_assignment("engineering")
     a.setdefault("mcqs", [])
     a.setdefault("short_answers", [])
-    if not a.get("coding"):
-        a["coding"] = None
+    # migrate legacy `coding` -> `coding_tasks`
+    if a.get("coding") and not a.get("coding_tasks"):
+        a["coding_tasks"] = [a["coding"]]
+    a.setdefault("coding_tasks", [])
+    a.pop("coding", None)
 
     existing_ids = (
         {m["id"] for m in a["mcqs"]}
         | {s["id"] for s in a["short_answers"]}
-        | ({a["coding"]["id"]} if a.get("coding") else set())
+        | {c["id"] for c in a["coding_tasks"]}
     )
     added_mcq = added_sa = added_code = 0
     for q in get_questions_by_ids(body.question_ids):
@@ -824,14 +868,15 @@ async def import_questions(job_id: str, body: ImportIn, _user=Depends(require_hr
             })
             added_sa += 1
         elif q["type"] == "code":
-            # only 1 coding task at a time — replace if empty else skip
-            if a.get("coding") is None:
-                a["coding"] = {
-                    "id": q["id"], "prompt": q["prompt"],
-                    "starter_code": q.get("starter_code", ""),
-                    "weight": q.get("weight", 1),
-                }
-                added_code += 1
+            a["coding_tasks"].append({
+                "id": q["id"],
+                "prompt": q["prompt"],
+                "starter_code": q.get("starter_code", ""),
+                "weight": q.get("weight", 1),
+                "language": q.get("language", "python"),
+                "test_code": q.get("test_code", ""),
+            })
+            added_code += 1
     await db.jobs.update_one({"_id": ObjectId(job_id)}, {"$set": {"assignment": a}})
     return {"ok": True, "added_mcq": added_mcq, "added_sa": added_sa, "added_code": added_code}
 

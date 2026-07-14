@@ -185,13 +185,61 @@ export default function HRSubmission() {
           </div>
         </div>
 
-        {/* Coding */}
-        {sub.coding_answer && (
+        {/* Coding submissions */}
+        {sub.coding_answers && Object.keys(sub.coding_answers).length > 0 ? (
+          <div className="mt-6">
+            <h2 className="font-display font-extrabold text-xl mb-3">Coding submissions</h2>
+            <div className="space-y-4">
+              {Object.entries(sub.coding_answers).map(([tid, code]) => {
+                const r = sub.coding_results?.[tid] || {};
+                const badgeClass =
+                  r.passed === true
+                    ? "border-green-300 text-green-700 bg-green-50"
+                    : r.passed === false
+                    ? "border-red-300 text-red-700 bg-red-50"
+                    : "border-zinc-300 text-zinc-600 bg-zinc-50";
+                const label =
+                  r.passed === true
+                    ? "Auto-graded: PASS"
+                    : r.passed === false
+                    ? "Auto-graded: FAIL"
+                    : r.needs_manual_review
+                    ? "Manual review needed"
+                    : "Not graded";
+                return (
+                  <div key={tid} className="border border-zinc-200 p-4">
+                    <div className="flex justify-between items-start gap-3 mb-2">
+                      <div className="text-xs uppercase tracking-widest text-zinc-500 font-mono">
+                        {tid} · {r.language || "code"}
+                      </div>
+                      <div className={`text-xs px-2 py-0.5 border font-mono ${badgeClass}`}>
+                        {label}
+                        {r.duration_ms != null && <> · {r.duration_ms}ms</>}
+                      </div>
+                    </div>
+                    <pre className="code-editor whitespace-pre-wrap">{code || "(empty)"}</pre>
+                    {r.passed === false && r.stderr && (
+                      <details className="mt-2">
+                        <summary className="text-xs cursor-pointer text-zinc-600 hover:text-zinc-900">
+                          Show error output
+                        </summary>
+                        <pre className="mt-2 bg-red-50 border border-red-200 p-2 text-xs whitespace-pre-wrap font-mono max-h-48 overflow-auto">
+                          {r.stderr}
+                          {r.stdout && `\n---STDOUT---\n${r.stdout}`}
+                        </pre>
+                      </details>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ) : sub.coding_answer ? (
           <div className="mt-6">
             <h2 className="font-display font-extrabold text-xl mb-3">Coding submission</h2>
             <pre className="code-editor whitespace-pre-wrap">{sub.coding_answer}</pre>
           </div>
-        )}
+        ) : null}
       </div>
     </div>
   );

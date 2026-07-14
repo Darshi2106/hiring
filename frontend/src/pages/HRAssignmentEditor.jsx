@@ -58,10 +58,18 @@ export default function HRAssignmentEditor() {
     setAssignment(next);
   };
 
+  const updateCoding = (idx, patch) => {
+    const next = { ...assignment, coding_tasks: [...(assignment.coding_tasks || [])] };
+    next.coding_tasks[idx] = { ...next.coding_tasks[idx], ...patch };
+    setAssignment(next);
+  };
+
+  const codingTasks = assignment.coding_tasks || [];
+
   const totalWeight =
     assignment.mcqs.reduce((s, m) => s + (m.weight || 1), 0) +
     assignment.short_answers.reduce((s, m) => s + (m.weight || 1), 0) +
-    (assignment.coding ? assignment.coding.weight || 1 : 0);
+    codingTasks.reduce((s, c) => s + (c.weight || 1), 0);
 
   const save = async () => {
     setSaving(true);
@@ -94,7 +102,7 @@ export default function HRAssignmentEditor() {
             <h1 className="font-display font-extrabold text-3xl tracking-tighter">{job?.title}</h1>
             <div className="mt-2 text-xs font-mono text-zinc-500">
               MCQs: {assignment.mcqs.length} · Short answers: {assignment.short_answers.length} ·
-              Coding: {assignment.coding ? "1" : "0"} · Total weight: {totalWeight}
+              Coding: {codingTasks.length} · Total weight: {totalWeight}
             </div>
           </div>
           <Button onClick={save} disabled={saving} className="bg-brand hover:opacity-90 rounded-none" data-testid="save-assignment">
@@ -336,82 +344,126 @@ export default function HRAssignmentEditor() {
           </div>
         </section>
 
-        {/* Coding */}
+        {/* Coding tasks (array) */}
         <section className="border border-zinc-200 p-5 mb-10">
           <div className="flex justify-between items-center mb-4">
             <h2 className="font-display font-extrabold text-lg flex items-center gap-2">
-              <Code className="w-4 h-4" /> Coding task
+              <Code className="w-4 h-4" /> Coding tasks ({codingTasks.length})
             </h2>
-            <div className="flex items-center gap-2">
-              {assignment.coding ? (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => setAssignment({ ...assignment, coding: null })}
-                  data-testid="coding-remove"
-                >
-                  <Trash2 className="w-4 h-4 text-red-600" />
-                </Button>
-              ) : (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="rounded-none"
-                  onClick={() =>
-                    setAssignment({
-                      ...assignment,
-                      coding: { id: "code1", prompt: "", starter_code: "", weight: 1 },
-                    })
-                  }
-                  data-testid="coding-add"
-                >
-                  <Plus className="w-3.5 h-3.5 mr-1" /> Add coding task
-                </Button>
-              )}
-            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              className="rounded-none"
+              onClick={() =>
+                setAssignment({
+                  ...assignment,
+                  coding_tasks: [
+                    ...codingTasks,
+                    {
+                      id: `code_${Math.random().toString(36).slice(2, 8)}`,
+                      prompt: "",
+                      starter_code: "",
+                      weight: 3,
+                      language: "python",
+                      test_code: "",
+                    },
+                  ],
+                })
+              }
+              data-testid="coding-add"
+            >
+              <Plus className="w-3.5 h-3.5 mr-1" /> Add coding task
+            </Button>
           </div>
 
-          {assignment.coding && (
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <Label className="w-16 text-xs">Weight</Label>
-                <Input
-                  type="number"
-                  min="1"
-                  value={assignment.coding.weight}
-                  onChange={(e) =>
-                    setAssignment({ ...assignment, coding: { ...assignment.coding, weight: Number(e.target.value) } })
-                  }
-                  className="rounded-none w-20 h-8"
-                  data-testid="coding-weight"
-                />
-              </div>
-              <div>
-                <Label className="text-xs">Prompt</Label>
-                <Textarea
-                  value={assignment.coding.prompt}
-                  onChange={(e) =>
-                    setAssignment({ ...assignment, coding: { ...assignment.coding, prompt: e.target.value } })
-                  }
-                  rows={3}
-                  className="rounded-none mt-1"
-                  data-testid="coding-prompt"
-                />
-              </div>
-              <div>
-                <Label className="text-xs">Starter code</Label>
-                <textarea
-                  className="code-editor mt-1"
-                  value={assignment.coding.starter_code}
-                  onChange={(e) =>
-                    setAssignment({ ...assignment, coding: { ...assignment.coding, starter_code: e.target.value } })
-                  }
-                  rows={8}
-                  data-testid="coding-starter"
-                />
-              </div>
-            </div>
+          {codingTasks.length === 0 && (
+            <p className="text-sm text-zinc-500 py-6 text-center border border-dashed border-zinc-300">
+              No coding tasks. Add one manually or use the library above.
+            </p>
           )}
+
+          <div className="space-y-4">
+            {codingTasks.map((task, i) => (
+              <div key={task.id} className="border border-zinc-200 p-4" data-testid={`coding-editor-${i}`}>
+                <div className="flex justify-between items-start mb-2">
+                  <div className="text-xs uppercase tracking-widest text-zinc-500 font-mono">
+                    Code Q{i + 1} · {task.language || "python"}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Label className="text-xs">Weight</Label>
+                    <Input
+                      type="number" min="1"
+                      value={task.weight || 1}
+                      onChange={(e) => updateCoding(i, { weight: Number(e.target.value) })}
+                      className="rounded-none w-16 h-8"
+                      data-testid={`coding-weight-${i}`}
+                    />
+                    <select
+                      value={task.language || "python"}
+                      onChange={(e) => updateCoding(i, { language: e.target.value })}
+                      className="rounded-none border border-zinc-300 text-xs h-8 px-2"
+                      data-testid={`coding-lang-${i}`}
+                    >
+                      <option value="python">Python</option>
+                      <option value="javascript">JavaScript</option>
+                      <option value="sql">SQL</option>
+                      <option value="other">Other</option>
+                    </select>
+                    <Button
+                      size="sm" variant="ghost"
+                      onClick={() =>
+                        setAssignment({
+                          ...assignment,
+                          coding_tasks: codingTasks.filter((_, k) => k !== i),
+                        })
+                      }
+                      data-testid={`coding-delete-${i}`}
+                    >
+                      <Trash2 className="w-4 h-4 text-red-600" />
+                    </Button>
+                  </div>
+                </div>
+
+                <div>
+                  <Label className="text-xs">Prompt</Label>
+                  <Textarea
+                    value={task.prompt || ""}
+                    onChange={(e) => updateCoding(i, { prompt: e.target.value })}
+                    rows={3}
+                    className="rounded-none mt-1"
+                    data-testid={`coding-prompt-${i}`}
+                  />
+                </div>
+                <div className="mt-3">
+                  <Label className="text-xs">Starter code</Label>
+                  <textarea
+                    className="code-editor mt-1"
+                    value={task.starter_code || ""}
+                    onChange={(e) => updateCoding(i, { starter_code: e.target.value })}
+                    rows={6}
+                    data-testid={`coding-starter-${i}`}
+                  />
+                </div>
+                {task.language === "python" && (
+                  <div className="mt-3">
+                    <Label className="text-xs">Test harness (Python — auto-graded)</Label>
+                    <textarea
+                      className="code-editor mt-1"
+                      value={task.test_code || ""}
+                      onChange={(e) => updateCoding(i, { test_code: e.target.value })}
+                      rows={4}
+                      placeholder="# assertions that must pass, e.g.\nassert count_duplicates([1,2,2,3]) == 1"
+                      data-testid={`coding-tests-${i}`}
+                    />
+                    <div className="mt-1 text-xs text-zinc-500">
+                      Leave blank for manual review. Otherwise, candidate submission is executed
+                      with these assertions in a sandboxed subprocess (10s timeout, 256MB).
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
         </section>
 
         <div className="sticky bottom-0 bg-white border-t border-zinc-200 py-4 -mx-6 px-6 flex justify-between items-center">

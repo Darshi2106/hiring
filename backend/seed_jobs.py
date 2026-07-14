@@ -108,11 +108,15 @@ def default_assignment(job_type: str = "engineering"):
                 "min_words": 40,
             },
         ],
-        "coding": {
-            "id": "code1",
-            "prompt": "Write a function `count_duplicates(arr)` that returns the count of duplicate values in an integer array. Provide the solution in any language.",
-            "starter_code": "def count_duplicates(arr):\n    # your code here\n    pass\n",
-        } if is_engineering else None,
+        "coding_tasks": [
+            {
+                "id": "code1",
+                "prompt": "Write a function `count_duplicates(arr)` that returns the count of duplicate values in an integer array. Provide the solution in any language.",
+                "starter_code": "def count_duplicates(arr):\n    # your code here\n    pass\n",
+                "language": "python",
+                "weight": 3,
+            }
+        ] if is_engineering else [],
     }
 
 

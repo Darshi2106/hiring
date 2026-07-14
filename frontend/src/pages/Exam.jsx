@@ -40,7 +40,8 @@ export default function Exam() {
   // Answers
   const [mcqAnswers, setMcqAnswers] = useState({});
   const [shortAnswers, setShortAnswers] = useState({});
-  const [codingAnswer, setCodingAnswer] = useState("");
+  const [codingAnswers, setCodingAnswers] = useState({}); // {task_id: code}
+  const [activeCodingIdx, setActiveCodingIdx] = useState(0);
 
   // Proctoring
   const videoRef = useRef(null);
@@ -98,7 +99,7 @@ export default function Exam() {
           invite_token: token,
           mcq_answers: mcqAnswers,
           short_answers: shortAnswers,
-          coding_answer: codingAnswer,
+          coding_answers: codingAnswers,
           violations: violationsRef.current,
           webcam_snapshots: snapshots,
           time_taken_seconds: elapsed,
@@ -111,7 +112,7 @@ export default function Exam() {
         toast.error(formatError(e.response?.data?.detail) || "Submit failed");
       }
     },
-    [token, mcqAnswers, shortAnswers, codingAnswer, snapshots]
+    [token, mcqAnswers, shortAnswers, codingAnswers, snapshots]
   );
 
   // Timer
@@ -315,9 +316,9 @@ export default function Exam() {
           <TabBtn active={tab === "sa"} onClick={() => setTab("sa")} testId="tab-sa">
             Short answers ({exam.short_answers.length})
           </TabBtn>
-          {exam.coding && (
+          {exam.coding_tasks && exam.coding_tasks.length > 0 && (
             <TabBtn active={tab === "code"} onClick={() => setTab("code")} testId="tab-code">
-              Coding
+              Coding ({exam.coding_tasks.length})
             </TabBtn>
           )}
         </div>
@@ -375,19 +376,54 @@ export default function Exam() {
           </div>
         )}
 
-        {tab === "code" && exam.coding && (
-          <div className="border border-zinc-200 p-5 bg-white" data-testid="coding-block">
-            <div className="text-xs text-zinc-500 uppercase tracking-widest mb-1">Coding task</div>
-            <div className="font-medium">{exam.coding.prompt}</div>
-            <textarea
-              className="code-editor mt-3"
-              value={codingAnswer || exam.coding.starter_code || ""}
-              onChange={(e) => setCodingAnswer(e.target.value)}
-              onPaste={(e) => e.preventDefault()}
-              spellCheck={false}
-              data-testid="coding-editor"
-            />
-            <div className="text-xs text-zinc-500 mt-1 font-mono">Paste disabled · your keystrokes are logged</div>
+        {tab === "code" && exam.coding_tasks && exam.coding_tasks.length > 0 && (
+          <div data-testid="coding-block">
+            {exam.coding_tasks.length > 1 && (
+              <div className="flex gap-1 mb-4 flex-wrap">
+                {exam.coding_tasks.map((t, i) => (
+                  <button
+                    key={t.id}
+                    onClick={() => setActiveCodingIdx(i)}
+                    className={`text-xs px-3 py-1.5 border transition-colors ${
+                      activeCodingIdx === i
+                        ? "bg-zinc-900 text-white border-zinc-900"
+                        : "border-zinc-300 text-zinc-600 hover:border-zinc-900"
+                    }`}
+                    data-testid={`coding-tab-${i}`}
+                  >
+                    Task {i + 1} · {t.language || "python"}
+                    {codingAnswers[t.id] ? " ✓" : ""}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {(() => {
+              const task = exam.coding_tasks[activeCodingIdx];
+              if (!task) return null;
+              const value = codingAnswers[task.id] ?? task.starter_code ?? "";
+              return (
+                <div className="border border-zinc-200 p-5 bg-white">
+                  <div className="text-xs text-zinc-500 uppercase tracking-widest mb-1 font-mono">
+                    Coding · Task {activeCodingIdx + 1} of {exam.coding_tasks.length} · {task.language || "python"}
+                  </div>
+                  <div className="font-medium whitespace-pre-wrap">{task.prompt}</div>
+                  <textarea
+                    className="code-editor mt-3"
+                    value={value}
+                    onChange={(e) =>
+                      setCodingAnswers({ ...codingAnswers, [task.id]: e.target.value })
+                    }
+                    onPaste={(e) => e.preventDefault()}
+                    spellCheck={false}
+                    data-testid={`coding-editor-${activeCodingIdx}`}
+                  />
+                  <div className="text-xs text-zinc-500 mt-1 font-mono">
+                    Paste disabled · your keystrokes are logged
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         )}
 

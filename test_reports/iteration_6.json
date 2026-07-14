@@ -1,0 +1,48 @@
+{
+  "summary": "Iteration 6 backend testing complete. Found & FIXED one CRITICAL bug in server.py (missing `grade_task` import → every /exam/submit returned 500). After fix: 13/13 new iter6 tests pass + 64/65 regression tests pass (1 pre-existing iter4 flake unrelated to iter6). Verified: (1) startup migration removes legacy `coding` key from all jobs. (2) AssignmentIn accepts coding_tasks[] and Pydantic silently ignores legacy `coding` field (unknown field). (3) /exam/{token} returns coding_tasks array and STRIPS test_code for security. (4) /exam/submit auto-grades Python tasks (correct→passed=true, broken→passed=false, infinite loop→error='timeout'), routes JS/SQL/Python-without-test_code to needs_manual_review=true with passed=null. (5) Import from library appends all 3 coding tasks (added_code=3) and skips duplicates. (6) Legacy coding_answer string is migrated into coding_answers[first_task_id] and graded correctly.",
+  "backend_issues": {
+    "critical": [
+      {"endpoint": "POST /api/exam/submit", "issue": "server.py did not import `grade_task` from code_grader — every coding submission raised NameError → HTTP 500. FIXED by adding `from code_grader import grade_task` at top of server.py.", "priority": "CRITICAL"}
+    ],
+    "minor": [
+      {"endpoint": "PUT /api/hr/jobs/{id}/assignment", "issue": "AssignmentIn Pydantic model uses default settings, so unknown fields (e.g., legacy `coding` single object) are silently IGNORED rather than rejected. The problem statement says 'Pydantic will reject unknown fields at v2 default settings' — this is INCORRECT: Pydantic v2 default is 'ignore', not 'forbid'. Recommend setting `model_config = ConfigDict(extra='forbid')` on AssignmentIn if strict rejection is desired. Current behavior: legacy shape is safely ignored (which matches the 'reject gracefully' intent), so functionally OK but not literally 'rejected'."},
+      {"endpoint": "GET /api/hr/jobs/{id}", "issue": "Some old test-created jobs (e.g., 'IT4 Test Job 7a7fd2') have `assignment: {}` (empty dict) with no coding_tasks key at all. Migration only touches jobs with `assignment.coding` — jobs with empty/no assignment are untouched. Not a bug per se, but worth noting for auto-shortlist / grader safety."},
+      {"endpoint": "POST /api/exam/submit", "issue": "coding_grader uses `subprocess.run` with `preexec_fn=_preexec_limit_memory` — this is not fork-safe on some platforms and Python has deprecated preexec_fn signal handling patterns. Works fine on the current Linux container but worth documenting."}
+    ]
+  },
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_iteration6.py",
+    "/app/test_reports/pytest/iteration6_results.xml",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "VERIFIED FIXED: Added `from code_grader import grade_task` to /app/backend/server.py (imports section). No further action needed but main agent should confirm this line is preserved in future edits.",
+    "OPTIONAL: If strict rejection of unknown fields (legacy `coding`) is desired, add `model_config = ConfigDict(extra='forbid')` to AssignmentIn. Currently unknown fields are silently ignored (functionally safe but not literally 'rejected' as the problem statement claims).",
+    "Pre-existing iter4 test `test_schedule_without_calendly_400` fails because DEFAULT_CALENDLY_URL backfill at startup populates URL on all jobs — this test needs updating to reflect iter5 behavior. Not caused by iter6."
+  ],
+  "critical_code_review_comments": [
+    "CRITICAL FIX APPLIED: server.py line 36 now imports grade_task. Without it every coding submission would 500 in production.",
+    "server.py now 938 lines — same repeated recommendation from iterations 4/5 to split into routers/ still stands.",
+    "code_grader.py: MEM_LIMIT_BYTES=256MB is enforced only for virtual address space via RLIMIT_AS. numpy/pandas/sklearn/opencv imports can exceed this and cause spurious failures when candidates import them. Consider raising limit for ML tasks or making it per-task configurable.",
+    "code_grader.py: subprocess uses `env={PATH,PYTHONDONTWRITEBYTECODE}` — this strips PYTHONPATH, HOME, etc. Fine for grading but if a candidate does `import site` or uses tempdirs, it could behave differently than a normal interpreter.",
+    "code_grader.py: `preexec_fn` is called in child before exec — this is not multi-thread safe. FastAPI/uvicorn runs the endpoint in a threadpool; while unlikely to cause issues, `subprocess.run(...)` with preexec_fn from a threaded server is discouraged. Consider using `resource.prlimit` from the parent post-spawn or Docker cgroups.",
+    "code_grader.py: append `print('__ALL_TESTS_PASSED__')` sentinel could be spoofed by candidate code that also prints the same string then raises. Check returncode==0 AND sentinel — that's already done. Good.",
+    "server.py /exam/submit: coding_results is stored keyed by task['id'] but if two coding_tasks share the same id (HR misconfig via import), the second overwrites the first silently. Add uniqueness check in update_assignment.",
+    "CodingItem.id default 'code1' can collide with imported ids. On PUT with two tasks both defaulting to 'code1' the assignment stores duplicates — HR UI should force unique ids.",
+    "AssignmentIn does not validate uniqueness of MCQ/SA/coding ids across the same assignment.",
+    "test_code strip in /exam/{token} uses dict comprehension `{k: v for k, v in t.items() if k != 'test_code'}` — safe. Verified in test.",
+    "grade_task returns different shapes for auto-graded (passed:bool + duration_ms + stdout/stderr + returncode) vs manual-review (needs_manual_review:True + message + passed:None). Frontend must handle both."
+  ],
+  "updated_files": [
+    "/app/backend/server.py (added `from code_grader import grade_task` — CRITICAL FIX)",
+    "/app/backend/tests/test_iteration6.py (new)"
+  ],
+  "success_rate": {"backend": "98.7% (77/78) — 13/13 iter6 pass, 1 pre-existing iter4 flake unrelated to iter6", "frontend": "not tested (backend-only request)"},
+  "test_credentials": "HR: hr@cohortdata.com / Cohort@2026. Master: darshan@cohortdata.com / MasterCohort@2026. Both verified working.",
+  "seed_data_creation": "Tests create ephemeral test_cand_it6_*@example.com candidates + IT6 Job * jobs per run. Grader test runs 1 real 10s timeout (infinite loop test) — total suite runtime ~90s. No cleanup endpoints.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Run: cd /app/backend && REACT_APP_BACKEND_URL=<url> python -m pytest tests/ --tb=short. pytest.ini pins -n 2 --dist loadscope. CRITICAL: /app/backend/server.py MUST import grade_task from code_grader — I added this in iter6 to fix a NameError. Verify it's still there. /exam/submit auto-grades Python tasks via subprocess (10s timeout). GET /exam/{token} strips test_code. Import endpoint appends ALL coding tasks now (not just 1). Legacy `coding_answer` string body populates coding_answers[first_task_id]. Default_assignment includes a default coding task with id='code1' — tests that import should filter to their imported ids.",
+  "rca of the issue": "ROOT CAUSE: server.py used `grade_task(task, cand_code)` in /exam/submit (line 580) but had no import statement for it. Python raised NameError at request time → FastAPI converted to HTTP 500. REPRODUCTION: POST /api/exam/submit with any coding_answers dict on a job with coding_tasks. MITIGATION: Added `from code_grader import grade_task` after the question_bank imports in server.py (~line 36). Restarted backend via supervisorctl. All 13 iter6 tests then passed."
+}
