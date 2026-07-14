@@ -30,7 +30,10 @@ Build a hiring portal for CohortData with proctored, anti-cheat assignments and 
 - HR dashboard with live stats + quick actions
 - HR jobs CRUD with per-role config: AI-reject threshold, Calendly URL, **auto-shortlist thresholds** (MCQ%, AI-risk max, max violations)
 - Per-job Assignment editor (MCQs with weights, short-answer, coding, duration)
-- Question Library (21 modules, ~130+ questions across Tech/ML/CV/DSA/SQL/Aptitude/Sales/Ops)
+- **Question Library (27 modules, 160+ questions)**:
+  - MCQ (12 modules, ~110 Qs): Frontend, Backend, Full-stack, ML, CV, DSA, SQL, Aptitude (Quant/Logical/Verbal), Sales, Operations
+  - Short-answer banks (3 modules, ~15 Qs): Behavioral, Tech-scenario, Sales-scenario
+  - **Coding tasks (12 modules, 37 tasks)**: Python (Beginner/Intermediate/Advanced), JavaScript/Async, React Components, Data Structures, SQL, Pandas/Data Wrangling, ML Pipeline, Computer Vision (OpenCV), FastAPI/Backend, Debug & Fix
 - AI-risk auto-reject (Claude Sonnet 4.5) — per-job threshold, HR override
 - **Weighted MCQ grading** — each MCQ has a weight; `mcq_pct_weighted` reported on submissions
 - **Auto-shortlist on submit** — if `mcq_pct ≥ 80 AND ai_risk_max < 10 AND violations ≤ 0` (all configurable) → application status auto-flips to `interview_scheduled` and candidate immediately sees the Calendly link

@@ -474,43 +474,162 @@ _add("sa_sales", "Short-answer — Sales", "Business & Sales", "Sales scenarios.
 
 # ---------------- CODING TASKS ----------------
 _add("code_python_beginner", "Coding — Python (Beginner)", "Tech & Eng",
-     "Fundamentals. 1 task.", [
+     "Fundamentals: strings, lists, dicts. 4 tasks.", [
     {"id": "q1", "type": "code", "weight": 3,
-     "prompt": "Write a function `count_duplicates(arr)` that returns the number of values in the integer array that appear more than once (count of DISTINCT duplicate values, not total duplicates).",
-     "starter_code": "def count_duplicates(arr):\n    # your code here\n    pass\n\n# Examples:\n# count_duplicates([1,2,2,3]) -> 1\n# count_duplicates([1,1,2,2,3]) -> 2\n# count_duplicates([1,2,3]) -> 0\n"},
+     "prompt": "Write `count_duplicates(arr)` returning the count of DISTINCT integer values that appear more than once.\n\nExamples:\n  count_duplicates([1,2,2,3]) -> 1\n  count_duplicates([1,1,2,2,3]) -> 2\n  count_duplicates([1,2,3]) -> 0",
+     "starter_code": "def count_duplicates(arr):\n    # your code here\n    pass\n"},
+    {"id": "q2", "type": "code", "weight": 3,
+     "prompt": "Write `is_palindrome(s)` that returns True if the input string is a palindrome (ignore case and non-alphanumeric characters).\n\nExamples:\n  is_palindrome('A man, a plan, a canal: Panama') -> True\n  is_palindrome('race a car') -> False",
+     "starter_code": "def is_palindrome(s):\n    # your code here\n    pass\n"},
+    {"id": "q3", "type": "code", "weight": 3,
+     "prompt": "Write `word_frequency(text, n=3)` returning a list of tuples of the top-n most-common words (lowercase, ignoring punctuation).\n\nExample:\n  word_frequency('The rain in spain falls in spain', 2) -> [('spain',2),('in',2)] (order flexible)",
+     "starter_code": "import re\nfrom collections import Counter\n\ndef word_frequency(text, n=3):\n    # your code here\n    pass\n"},
+    {"id": "q4", "type": "code", "weight": 4,
+     "prompt": "Implement `flatten(lst)` that flattens an arbitrarily nested list of integers into a flat list.\n\nExamples:\n  flatten([1,[2,[3,4],5],6]) -> [1,2,3,4,5,6]",
+     "starter_code": "def flatten(lst):\n    # your code here\n    pass\n"},
 ])
 
 _add("code_python_intermediate", "Coding — Python (Intermediate)", "Tech & Eng",
-     "String parsing + data structures. 1 task.", [
+     "Parsing, decorators, generators. 3 tasks.", [
     {"id": "q1", "type": "code", "weight": 5,
-     "prompt": "Given a list of log lines in the format 'YYYY-MM-DD HH:MM:SS LEVEL MESSAGE', write `top_errors_per_day(lines, n=3)` returning a dict of {date: [top n most-frequent ERROR messages]}. Only ERROR-level messages count.",
+     "prompt": "Given log lines like 'YYYY-MM-DD HH:MM:SS LEVEL MESSAGE', write `top_errors_per_day(lines, n=3)` returning `{date: [top n most-frequent ERROR messages]}`.",
      "starter_code": "from collections import defaultdict, Counter\n\ndef top_errors_per_day(lines, n=3):\n    # your code here\n    pass\n"},
+    {"id": "q2", "type": "code", "weight": 5,
+     "prompt": "Implement a decorator `@retry(times=3, delay=0)` that re-invokes a function up to `times` on any exception, sleeping `delay` seconds between attempts. Re-raise the last exception if all attempts fail.",
+     "starter_code": "import time\nfrom functools import wraps\n\ndef retry(times=3, delay=0):\n    # return a decorator here\n    pass\n"},
+    {"id": "q3", "type": "code", "weight": 4,
+     "prompt": "Write a generator `paginate(iterable, page_size)` that yields lists (pages) of up to `page_size` items. The last page may be shorter.\n\nExample:\n  list(paginate(range(7), 3)) -> [[0,1,2],[3,4,5],[6]]",
+     "starter_code": "def paginate(iterable, page_size):\n    # your code here\n    pass\n"},
+])
+
+_add("code_python_advanced", "Coding — Python (Advanced)", "Tech & Eng",
+     "Async, threading, concurrency. 3 tasks.", [
+    {"id": "q1", "type": "code", "weight": 6,
+     "prompt": "Using asyncio + aiohttp (or httpx), write `async def fetch_all(urls, concurrency=10)` that fetches every URL and returns a dict `{url: status_code}`. Use a Semaphore to cap concurrency.",
+     "starter_code": "import asyncio\n\nasync def fetch_all(urls, concurrency=10):\n    # your code here\n    pass\n"},
+    {"id": "q2", "type": "code", "weight": 6,
+     "prompt": "Implement a `RateLimiter(rate_per_sec)` class with a synchronous `acquire()` method that blocks so at most `rate_per_sec` acquires happen per rolling second. Thread-safe.",
+     "starter_code": "import threading, time\nfrom collections import deque\n\nclass RateLimiter:\n    def __init__(self, rate_per_sec):\n        # your code here\n        pass\n    def acquire(self):\n        # your code here\n        pass\n"},
+    {"id": "q3", "type": "code", "weight": 6,
+     "prompt": "Write `chunked_producer_consumer(items, worker, num_workers=4)` that spins up `num_workers` threads that consume items from a shared queue and call `worker(item)`. Return the list of results in ORIGINAL input order.",
+     "starter_code": "from concurrent.futures import ThreadPoolExecutor\n\ndef chunked_producer_consumer(items, worker, num_workers=4):\n    # your code here\n    pass\n"},
 ])
 
 _add("code_javascript_async", "Coding — JavaScript / Async", "Tech & Eng",
-     "Promises, error handling. 1 task.", [
+     "Promises, timers, event loop. 3 tasks.", [
     {"id": "q1", "type": "code", "weight": 4,
-     "prompt": "Write an async JS function `fetchWithRetry(url, options={}, retries=3, backoffMs=500)` that fetches the URL and retries on non-2xx / network error with exponential backoff. On final failure it should throw the last error.",
+     "prompt": "Write `async fetchWithRetry(url, options={}, retries=3, backoffMs=500)` that retries on non-2xx or network error with exponential backoff. Throws the last error on final failure.",
      "starter_code": "async function fetchWithRetry(url, options = {}, retries = 3, backoffMs = 500) {\n  // your code here\n}\n"},
+    {"id": "q2", "type": "code", "weight": 4,
+     "prompt": "Write `promisePool(items, worker, concurrency=5)` that runs `worker(item)` for every item with at most `concurrency` in flight. Returns Promise<Array> preserving input order.",
+     "starter_code": "async function promisePool(items, worker, concurrency = 5) {\n  // your code here\n}\n"},
+    {"id": "q3", "type": "code", "weight": 4,
+     "prompt": "Write `debounce(fn, waitMs)` that returns a debounced function. Also implement `throttle(fn, waitMs)` (leading-edge) in the same file.",
+     "starter_code": "function debounce(fn, waitMs) {\n  // your code here\n}\n\nfunction throttle(fn, waitMs) {\n  // your code here\n}\n"},
 ])
 
-_add("code_dsa", "Coding — Data Structures", "Tech & Eng", "Classic DSA. 1 task.", [
+_add("code_react", "Coding — React Components", "Tech & Eng",
+     "Component design, hooks. 3 tasks.", [
     {"id": "q1", "type": "code", "weight": 5,
-     "prompt": "Implement `lru_cache_class(capacity)` that returns an object supporting `get(key)` and `put(key, value)` with O(1) average complexity, evicting the least-recently-used key when capacity is exceeded.",
-     "starter_code": "def lru_cache_class(capacity):\n    # Return an object with .get(key) and .put(key, value)\n    pass\n"},
+     "prompt": "Build a React function component `<SearchableList items={[...]} />` that renders a text input and a filtered list. Filter should be case-insensitive substring match. Handle empty state.",
+     "starter_code": "import React, { useState, useMemo } from 'react';\n\nexport default function SearchableList({ items = [] }) {\n  // your code here\n}\n"},
+    {"id": "q2", "type": "code", "weight": 5,
+     "prompt": "Build `<SignupForm onSubmit={fn} />`. Fields: name (required), email (required + must be valid), password (min 8, must include a digit). Show inline errors below each field. Disable submit until valid.",
+     "starter_code": "import React, { useState } from 'react';\n\nexport default function SignupForm({ onSubmit }) {\n  // your code here\n}\n"},
+    {"id": "q3", "type": "code", "weight": 5,
+     "prompt": "Implement a custom hook `useDebounce(value, delay=300)` that returns the debounced value. Also demonstrate using it in a short usage example below the hook.",
+     "starter_code": "import { useEffect, useState } from 'react';\n\nexport function useDebounce(value, delay = 300) {\n  // your code here\n}\n"},
 ])
 
-_add("code_sql", "Coding — SQL Query", "Tech & Eng", "SQL query challenge.", [
+_add("code_dsa", "Coding — Data Structures", "Tech & Eng",
+     "Classic DSA problems. 4 tasks.", [
+    {"id": "q1", "type": "code", "weight": 5,
+     "prompt": "Implement `LRUCache(capacity)` supporting `get(key)` and `put(key, value)` in average O(1) time. Evict least-recently-used when full. Use OrderedDict OR a doubly-linked-list + hashmap.",
+     "starter_code": "class LRUCache:\n    def __init__(self, capacity):\n        # your code here\n        pass\n    def get(self, key):\n        pass\n    def put(self, key, value):\n        pass\n"},
+    {"id": "q2", "type": "code", "weight": 3,
+     "prompt": "Write `two_sum(nums, target)` returning the indices of the two numbers that sum to target. Assume exactly one solution. Solve in O(n).",
+     "starter_code": "def two_sum(nums, target):\n    # your code here\n    pass\n"},
+    {"id": "q3", "type": "code", "weight": 5,
+     "prompt": "Write `merge_intervals(intervals)` — given a list of [start,end] intervals, merge all overlapping ones and return the sorted list.\n\nExample:\n  merge_intervals([[1,3],[2,6],[8,10],[15,18]]) -> [[1,6],[8,10],[15,18]]",
+     "starter_code": "def merge_intervals(intervals):\n    # your code here\n    pass\n"},
+    {"id": "q4", "type": "code", "weight": 6,
+     "prompt": "Implement `serialize(root)` and `deserialize(data)` for a binary tree. `TreeNode` has `.val`, `.left`, `.right`. Use any string format you prefer.",
+     "starter_code": "class TreeNode:\n    def __init__(self, val=0, left=None, right=None):\n        self.val = val\n        self.left = left\n        self.right = right\n\ndef serialize(root):\n    pass\n\ndef deserialize(data):\n    pass\n"},
+])
+
+_add("code_sql", "Coding — SQL Query", "Tech & Eng",
+     "Joins, group-by, window functions. 3 tasks.", [
     {"id": "q1", "type": "code", "weight": 3,
-     "prompt": "Given tables `applications(id, job_id, candidate_id, created_at)` and `jobs(id, title, department)`, write a SQL query that returns, for each department, the top 3 job titles by number of applications in the last 30 days.",
+     "prompt": "Tables `applications(id, job_id, candidate_id, created_at)` and `jobs(id, title, department)`. Write a SQL query that returns, per department, the top 3 job titles by number of applications in the last 30 days.",
+     "starter_code": "-- Your SQL here\n"},
+    {"id": "q2", "type": "code", "weight": 4,
+     "prompt": "Table `orders(id, customer_id, amount, ordered_at)`. Write a query that returns, for each customer, their running total of order amounts over time (sorted by ordered_at).",
+     "starter_code": "-- Your SQL here\n"},
+    {"id": "q3", "type": "code", "weight": 4,
+     "prompt": "Tables `employees(id, name, manager_id)` — self-referential. Write a query returning each employee's name alongside their manager's name (NULL if no manager).",
      "starter_code": "-- Your SQL here\n"},
 ])
 
+_add("code_pandas", "Coding — Pandas / Data Wrangling", "Tech & Eng",
+     "Clean, group, reshape. 3 tasks.", [
+    {"id": "q1", "type": "code", "weight": 4,
+     "prompt": "Given a pandas DataFrame `df` with columns [name, email, signup_date, plan], write `clean(df)` that: 1) drops rows with any nulls, 2) lower-cases the email, 3) parses signup_date to datetime, 4) returns the cleaned DataFrame sorted by signup_date desc.",
+     "starter_code": "import pandas as pd\n\ndef clean(df):\n    # your code here\n    pass\n"},
+    {"id": "q2", "type": "code", "weight": 5,
+     "prompt": "DataFrame `sales(product, region, revenue, quarter)`. Write `top_products_per_region(sales, n=3)` returning a DataFrame of the top-n products by total revenue for each region.",
+     "starter_code": "import pandas as pd\n\ndef top_products_per_region(sales, n=3):\n    # your code here\n    pass\n"},
+    {"id": "q3", "type": "code", "weight": 5,
+     "prompt": "You have two DataFrames — `users(id, name)` and `events(user_id, event, ts)`. Write `user_event_matrix(users, events)` returning a DataFrame with users as rows, unique events as columns, and counts as cells (missing = 0).",
+     "starter_code": "import pandas as pd\n\ndef user_event_matrix(users, events):\n    # your code here\n    pass\n"},
+])
+
 _add("code_ml_pipeline", "Coding — ML Pipeline", "Tech & Eng",
-     "Data + model boilerplate. 1 task.", [
+     "sklearn training + evaluation. 3 tasks.", [
     {"id": "q1", "type": "code", "weight": 5,
-     "prompt": "Using scikit-learn, write `train_and_score(df, target_col)` that: 1) splits into train/test 80/20, 2) fits a RandomForestClassifier with 100 trees, 3) returns test-set F1 (weighted). Use random_state=42.",
+     "prompt": "Using scikit-learn, write `train_and_score(df, target_col)` that: 1) splits 80/20 with random_state=42, 2) fits a RandomForestClassifier(n_estimators=100), 3) returns test-set weighted F1.",
      "starter_code": "from sklearn.ensemble import RandomForestClassifier\nfrom sklearn.model_selection import train_test_split\nfrom sklearn.metrics import f1_score\n\ndef train_and_score(df, target_col):\n    # your code here\n    pass\n"},
+    {"id": "q2", "type": "code", "weight": 5,
+     "prompt": "Write `cross_validated_score(X, y, model, k=5)` performing k-fold cross-validation and returning the mean AND std of accuracy across folds.",
+     "starter_code": "import numpy as np\nfrom sklearn.model_selection import KFold\n\ndef cross_validated_score(X, y, model, k=5):\n    # your code here\n    pass\n"},
+    {"id": "q3", "type": "code", "weight": 5,
+     "prompt": "Given a trained sklearn tree-based model with `.feature_importances_` and a list of feature names, write `top_features(model, feature_names, k=10)` returning the top-k features as a list of (name, importance) tuples, sorted desc.",
+     "starter_code": "def top_features(model, feature_names, k=10):\n    # your code here\n    pass\n"},
+])
+
+_add("code_cv_opencv", "Coding — Computer Vision", "Tech & Eng",
+     "OpenCV + numpy image tasks. 2 tasks.", [
+    {"id": "q1", "type": "code", "weight": 5,
+     "prompt": "Using OpenCV + numpy, write `resize_and_pad(image, target=(224,224))` that resizes preserving aspect ratio and pads with black to exactly (224,224).",
+     "starter_code": "import cv2\nimport numpy as np\n\ndef resize_and_pad(image, target=(224, 224)):\n    # your code here\n    pass\n"},
+    {"id": "q2", "type": "code", "weight": 5,
+     "prompt": "Write `iou(boxA, boxB)` computing Intersection-over-Union for two bounding boxes in [x1,y1,x2,y2] format. Return a float in [0,1].",
+     "starter_code": "def iou(boxA, boxB):\n    # your code here\n    pass\n"},
+])
+
+_add("code_fastapi", "Coding — FastAPI / Backend", "Tech & Eng",
+     "API endpoint design. 3 tasks.", [
+    {"id": "q1", "type": "code", "weight": 5,
+     "prompt": "Using FastAPI, expose POST /api/notes accepting {title, body} and GET /api/notes returning all notes. Store in-memory. Use Pydantic models. Return proper status codes.",
+     "starter_code": "from fastapi import FastAPI, HTTPException\nfrom pydantic import BaseModel\nfrom typing import List\nimport uuid\n\napp = FastAPI()\n\n# your models + endpoints here\n"},
+    {"id": "q2", "type": "code", "weight": 6,
+     "prompt": "Write a FastAPI dependency `verify_jwt(token: str)` that decodes a JWT (HS256, secret 'test-secret'), returns the payload, or raises HTTPException 401 on any error. Then apply it as a dependency on a `/me` endpoint.",
+     "starter_code": "import jwt\nfrom fastapi import Depends, HTTPException, Header, FastAPI\n\napp = FastAPI()\n\ndef verify_jwt(...):\n    # your code here\n    pass\n\n@app.get('/me')\ndef me(...):\n    # your code here\n    pass\n"},
+    {"id": "q3", "type": "code", "weight": 5,
+     "prompt": "Write a per-IP FastAPI middleware that limits requests to 60/min. Return 429 with a Retry-After header when exceeded. Use an in-memory store.",
+     "starter_code": "from fastapi import FastAPI, Request, Response\nimport time\nfrom collections import defaultdict, deque\n\napp = FastAPI()\n\n# your middleware here\n"},
+])
+
+_add("code_debug_fix", "Coding — Debug & Fix", "Tech & Eng",
+     "Read code, find the bug, fix it. 3 tasks.", [
+    {"id": "q1", "type": "code", "weight": 4,
+     "prompt": "The function below is supposed to reverse a list in place, but it doesn't work for all cases. Find and fix the bug.\n\ndef reverse(lst):\n    for i in range(len(lst)):\n        lst[i], lst[-i-1] = lst[-i-1], lst[i]\n    return lst\n\nExplain your fix in a comment.",
+     "starter_code": "def reverse(lst):\n    for i in range(len(lst)):\n        lst[i], lst[-i-1] = lst[-i-1], lst[i]\n    return lst\n\n# Your fix here — replace the whole function.\n"},
+    {"id": "q2", "type": "code", "weight": 5,
+     "prompt": "The SQL below is vulnerable to injection. Rewrite it safely using parameterized queries in Python (any DB library).\n\n```python\ndef get_user(cursor, name):\n    cursor.execute(f\"SELECT * FROM users WHERE name = '{name}'\")\n    return cursor.fetchone()\n```",
+     "starter_code": "def get_user(cursor, name):\n    # Rewrite safely below\n    pass\n"},
+    {"id": "q3", "type": "code", "weight": 6,
+     "prompt": "The async code below has a race condition — sometimes counters skip. Fix it using an asyncio lock or another sound approach.\n\n```python\nimport asyncio\ncounter = 0\nasync def inc():\n    global counter\n    v = counter\n    await asyncio.sleep(0)\n    counter = v + 1\n```\nWrite a fixed version and demonstrate 1000 concurrent calls produce the correct total.",
+     "starter_code": "import asyncio\n\ncounter = 0\n\n# fixed inc + main here\n"},
 ])
 
 
