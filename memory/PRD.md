@@ -79,5 +79,15 @@ Build a hiring portal for CohortData with proctored, anti-cheat assignments and 
 9. setState-in-render warning fix on HRLogin/CandidateLogin/CandidateRegister — DONE (iter 9, 0 warnings)
 
 ## Known cleanup (non-blocking)
-- Weekly HR digest email (top 5 Trust Score candidates, stalled roles) — proposed but not implemented
-- Auto-post open roles to LinkedIn + Twitter when HR flips a role to `open` — proposed but not implemented
+- Iteration 10 — Security audit hardening COMPLETE:
+  - SEC-001 CRITICAL fixed: code_grader runs as `nobody` via `sudo -n -u nobody`; .env chmod 0o600 at startup; sandbox blocks reads outside tempdir
+  - SEC-002 HIGH fixed: `_sanitize_public_job` strips assignment + all thresholds from /api/jobs and /api/jobs/{id}
+  - SEC-003 MEDIUM fixed: /api/exam/violation persists server-side; /exam/submit uses `max(server, client)` for auto-shortlist gate; frontend Exam.jsx posts violations real-time
+  - SEC-004 MEDIUM fixed: magic-byte validation on resume upload (PDF/DOC/DOCX only); force attachment + nosniff + canonical CT on download
+  - P3 quick-wins: slowapi rate limits (login 10/min, register 5/min, apply 5/min, exam-submit 3/hr, resume-upload 10/hr); email HTML-escape; .env in .gitignore
+- Iteration 10 — Roles correction: 7 canonical roles from cohortdata.com/careers (Senior PM, Sales Manager, Director Global Sales, Visualization Eng, Senior ML/CV Eng, Platform/Ops Eng, Lead Full-Stack Eng). Per-role assessments applied via `assessment_modules_applied` idempotency flag (HR customizations preserved on restart).
+
+## Backlog
+- Weekly HR digest email (top 5 Trust Score, stalled roles) — proposed
+- Auto-post open roles to LinkedIn/Twitter when HR opens a role — proposed
+- Rotate GitHub PAT and Resend key (both were pasted in chat)
