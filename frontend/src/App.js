@@ -16,6 +16,7 @@ import HRApplications from "@/pages/HRApplications";
 import HRSubmission from "@/pages/HRSubmission";
 import HRAssignmentEditor from "@/pages/HRAssignmentEditor";
 import MasterUsers from "@/pages/MasterUsers";
+import MasterQuestionBank from "@/pages/MasterQuestionBank";
 import CandidateLogin from "@/pages/CandidateLogin";
 import CandidateRegister from "@/pages/CandidateRegister";
 import CandidateDashboard from "@/pages/CandidateDashboard";
