@@ -131,6 +131,36 @@ async def require_master(current=Depends(get_current_user)):
     return current
 
 
+def compute_trust_score(mcq_pct: int, coding_results: dict, ai_risk_max: int, violations: list) -> dict:
+    """0-100 composite trust score. Higher = stronger, more trustworthy candidate.
+    Weights adapt: if no coding tasks auto-graded, redistribute weight to MCQ + AI safety.
+    """
+    # Coding pass ratio (only over auto-graded tasks)
+    auto_tasks = [r for r in coding_results.values() if r.get("needs_manual_review") is False]
+    coding_pct = None
+    if auto_tasks:
+        passed = sum(1 for r in auto_tasks if r.get("passed") is True)
+        coding_pct = int(round(100 * passed / len(auto_tasks)))
+
+    # Safety (inverse of AI risk)
+    ai_safety = max(0, 100 - int(ai_risk_max or 0))
+
+    # Proctoring (each violation costs 20 points, clamped)
+    proctoring = max(0, 100 - min(100, len(violations or []) * 20))
+
+    mcq = max(0, min(100, int(mcq_pct or 0)))
+
+    if coding_pct is not None:
+        # weights: mcq 30, coding 30, ai 25, proctoring 15
+        total = mcq * 0.30 + coding_pct * 0.30 + ai_safety * 0.25 + proctoring * 0.15
+        breakdown = {"mcq": mcq, "coding": coding_pct, "ai_safety": ai_safety, "proctoring": proctoring}
+    else:
+        # no auto-graded coding: mcq 45, ai 30, proctoring 25
+        total = mcq * 0.45 + ai_safety * 0.30 + proctoring * 0.25
+        breakdown = {"mcq": mcq, "coding": None, "ai_safety": ai_safety, "proctoring": proctoring}
+    return {"score": int(round(total)), "breakdown": breakdown}
+
+
 # ---------------- Startup ----------------
 @app.on_event("startup")
 async def startup():
@@ -377,10 +407,9 @@ async def hr_get_job(job_id: str, _user=Depends(require_hr)):
 
 # ---------------- HR: Applications ----------------
 @api.get("/hr/applications")
-async def list_applications(job_id: Optional[str] = None, _user=Depends(require_hr)):
+async def list_applications(job_id: Optional[str] = None, sort: str = "trust", _user=Depends(require_hr)):
     q = {"job_id": job_id} if job_id else {}
     docs = await db.applications.find(q).sort("created_at", -1).to_list(1000)
-    # attach invite/submission summary
     result = []
     for d in docs:
         d = oid_to_str(d)
@@ -392,8 +421,12 @@ async def list_applications(job_id: Optional[str] = None, _user=Depends(require_
         d["submission_id"] = str(sub["_id"]) if sub else None
         d["ai_risk_avg"] = sub.get("ai_risk_avg") if sub else None
         d["mcq_score"] = sub.get("mcq_score") if sub else None
+        d["mcq_pct_weighted"] = sub.get("mcq_pct_weighted") if sub else None
         d["violation_count"] = len(sub.get("violations", [])) if sub else 0
+        d["trust_score"] = sub.get("trust_score") if sub else d.get("trust_score")
         result.append(d)
+    if sort == "trust":
+        result.sort(key=lambda a: (a.get("trust_score") is None, -(a.get("trust_score") or 0)))
     return result
 
 
@@ -652,6 +685,9 @@ async def submit_exam(body: SubmitAnswersIn):
         cand_code = coding_answers.get(task["id"], "")
         coding_results[task["id"]] = grade_task(task, cand_code)
 
+    # Trust score (composite ranking)
+    trust = compute_trust_score(mcq_pct, coding_results, ai_risk_max, body.violations)
+
     sub_doc = {
         "invite_token": body.invite_token,
         "application_id": inv["application_id"],
@@ -671,6 +707,8 @@ async def submit_exam(body: SubmitAnswersIn):
         "auto_flagged": auto_flagged,
         "auto_shortlisted": auto_shortlist,
         "hr_override": False,
+        "trust_score": trust["score"],
+        "trust_breakdown": trust["breakdown"],
         "mcq_score": mcq_correct,
         "mcq_total": mcq_total,
         "mcq_pct_weighted": mcq_pct,
@@ -686,7 +724,7 @@ async def submit_exam(body: SubmitAnswersIn):
         {"token": body.invite_token},
         {"$set": {"status": "submitted", "submitted_at": now}},
     )
-    update_fields = {"status": app_status}
+    update_fields = {"status": app_status, "trust_score": trust["score"]}
     if auto_shortlist:
         update_fields["calendly_url"] = job.get("calendly_url", "")
     await db.applications.update_one(
@@ -702,6 +740,8 @@ async def submit_exam(body: SubmitAnswersIn):
         "ai_risk_max": ai_risk_max,
         "auto_flagged": auto_flagged,
         "auto_shortlisted": auto_shortlist,
+        "trust_score": trust["score"],
+        "trust_breakdown": trust["breakdown"],
     }
 
 

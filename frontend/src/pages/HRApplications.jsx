@@ -110,6 +110,7 @@ export default function HRApplications() {
                 <tr>
                   <th className="text-left px-4 py-3 font-medium">Candidate</th>
                   <th className="text-left px-4 py-3 font-medium">Role</th>
+                  <th className="text-left px-4 py-3 font-medium">Trust</th>
                   <th className="text-left px-4 py-3 font-medium">Status</th>
                   <th className="text-left px-4 py-3 font-medium">MCQ</th>
                   <th className="text-left px-4 py-3 font-medium">AI risk</th>
@@ -136,12 +137,31 @@ export default function HRApplications() {
                     </td>
                     <td className="px-4 py-3 text-zinc-700">{a.job_title}</td>
                     <td className="px-4 py-3">
+                      {a.trust_score != null ? (
+                        <span
+                          className={`font-mono text-sm font-bold px-2 py-1 border ${
+                            a.trust_score >= 75
+                              ? "border-green-400 text-green-700 bg-green-50"
+                              : a.trust_score >= 50
+                              ? "border-amber-400 text-amber-700 bg-amber-50"
+                              : "border-red-400 text-red-700 bg-red-50"
+                          }`}
+                          title="Composite of MCQ %, coding pass rate, AI safety, and proctoring"
+                          data-testid={`trust-${a.id}`}
+                        >
+                          {a.trust_score}
+                        </span>
+                      ) : (
+                        <span className="text-zinc-300 font-mono">—</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
                       <span className="text-xs font-mono uppercase border border-zinc-300 px-2 py-0.5">
                         {a.status.replace(/_/g, " ")}
                       </span>
                     </td>
                     <td className="px-4 py-3 font-mono">
-                      {a.mcq_score != null ? `${a.mcq_score}` : <span className="text-zinc-300">—</span>}
+                      {a.mcq_pct_weighted != null ? `${a.mcq_pct_weighted}%` : (a.mcq_score != null ? `${a.mcq_score}` : <span className="text-zinc-300">—</span>)}
                     </td>
                     <td className={`px-4 py-3 font-mono ${riskColor(a.ai_risk_avg)}`}>
                       {a.ai_risk_avg != null ? `${a.ai_risk_avg}%` : <span className="text-zinc-300">—</span>}
